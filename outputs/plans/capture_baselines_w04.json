@@ -1,0 +1,90 @@
+[
+  {
+    "model": "naive_similar_day",
+    "executor": "open-loop",
+    "window": "val",
+    "capture": 0.4515,
+    "revenue": 5415502,
+    "oracle": 11994630,
+    "spearman": 0.566,
+    "oracle_top10_share": 0.517,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "autoregression",
+    "executor": "open-loop",
+    "window": "val",
+    "capture": 0.4733,
+    "revenue": 5677574,
+    "oracle": 11994630,
+    "spearman": 0.665,
+    "oracle_top10_share": 0.517,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "lightgbm_rich",
+    "executor": "open-loop",
+    "window": "val",
+    "capture": 0.389,
+    "revenue": 4665826,
+    "oracle": 11994630,
+    "spearman": 0.632,
+    "oracle_top10_share": 0.517,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "lightgbm_qmean",
+    "executor": "open-loop",
+    "window": "val",
+    "capture": 0.4071,
+    "revenue": 4883029,
+    "oracle": 11994630,
+    "spearman": 0.672,
+    "oracle_top10_share": 0.517,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "naive_similar_day",
+    "executor": "open-loop",
+    "window": "test",
+    "capture": 0.3473,
+    "revenue": 2676924,
+    "oracle": 7707632,
+    "spearman": 0.575,
+    "oracle_top10_share": 0.307,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "autoregression",
+    "executor": "open-loop",
+    "window": "test",
+    "capture": 0.4016,
+    "revenue": 3095584,
+    "oracle": 7707632,
+    "spearman": 0.668,
+    "oracle_top10_share": 0.307,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "lightgbm_rich",
+    "executor": "open-loop",
+    "window": "test",
+    "capture": 0.301,
+    "revenue": 2320346,
+    "oracle": 7707632,
+    "spearman": 0.688,
+    "oracle_top10_share": 0.307,
+    "git_sha": "e5b1ebc"
+  },
+  {
+    "model": "lightgbm_qmean",
+    "executor": "open-loop",
+    "window": "test",
+    "capture": 0.4426,
+    "revenue": 3411361,
+    "oracle": 7707632,
+    "spearman": 0.7,
+    "oracle_top10_share": 0.307,
+    "git_sha": "e5b1ebc"
+  }
+]

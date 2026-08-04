@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grian — trading dashboard</title>
+<script>/*__PLOTLY_JS__*/</script>
+<style>
+:root{
+  --bg:#ffffff; --panel:#f6f7f9; --border:#e2e5ea; --fg:#1a1d21;
+  --muted:#6b7280; --accent:#2563eb; --grid:#e6e8ec;
+  --actual:#111827; --forecast:#2563eb; --pos:#16a34a; --neg:#dc2626;
+}
+:root[data-theme="dark"]{
+  --bg:#0f1216; --panel:#171b21; --border:#272c34; --fg:#e6e8ec;
+  --muted:#9aa3af; --accent:#60a5fa; --grid:#242a32;
+  --actual:#e5e7eb; --forecast:#60a5fa; --pos:#4ade80; --neg:#f87171;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1216; --panel:#171b21; --border:#272c34; --fg:#e6e8ec;
+    --muted:#9aa3af; --accent:#60a5fa; --grid:#242a32;
+    --actual:#e5e7eb; --forecast:#60a5fa; --pos:#4ade80; --neg:#f87171;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+  padding:16px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;
+  background:var(--bg);z-index:10}
+h1{font-size:18px;margin:0;font-weight:650}
+.meta{color:var(--muted);font-size:12px}
+.spacer{flex:1}
+button,select{font:inherit;color:var(--fg);background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+main{padding:18px 22px;max-width:1280px;margin:0 auto}
+section{margin:0 0 26px}
+h2{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--fg)}
+.sub{color:var(--muted);font-size:12px;margin:-6px 0 10px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.controls label{color:var(--muted);font-size:12px}
+.wbar{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.wbar label{color:var(--muted);font-size:12px;display:flex;gap:6px;align-items:center}
+.wbar input[type=date]{font:inherit;color:var(--fg);background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;padding:5px 8px}
+.wnote{color:var(--muted);font-size:12px;margin-left:auto}
+.chart{width:100%;height:340px}
+.chart.tall{height:420px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+th.sorted::after{content:" \25BC";font-size:9px}
+th.sorted.asc::after{content:" \25B2"}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+tr.linkrow{cursor:pointer}
+tr.linkrow:hover td:not(.model):not(.cap):not(.empty){color:var(--accent)}
+.tablewrap{max-height:420px;overflow:auto;border-radius:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.kpi .v{font-size:20px;font-weight:650}
+.kpi .v.name{font-size:13px;font-weight:600;word-break:break-all;line-height:1.35}
+.kpi .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-size:13px}
+.tab.active{border-color:var(--accent);color:var(--accent)}
+.tabpane{display:none}.tabpane.active{display:block}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+[data-tip]{cursor:help}
+th[data-tip]{text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:var(--muted)}
+.model[data-tip]{text-decoration:underline dotted;text-underline-offset:2px;text-decoration-color:var(--muted)}
+/* ---- model spec table + capture matrix ---- */
+.spec td,.spec th{white-space:nowrap}
+.spec td:first-child{font-weight:600}
+.badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11.5px;
+  border:1px solid var(--border);color:var(--muted);background:var(--bg)}
+.badge.on{background:color-mix(in srgb,var(--accent) 16%,transparent);
+  border-color:var(--accent);color:var(--fg)}
+.badge.q{background:color-mix(in srgb,var(--pos) 16%,transparent);border-color:var(--pos);color:var(--fg)}
+.dash{color:var(--muted);opacity:.5}
+.matrix{border-collapse:separate;border-spacing:0}
+.matrix th,.matrix td{text-align:center;padding:6px 8px;min-width:50px;
+  border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.matrix thead th{writing-mode:horizontal-tb;font-size:11.5px}
+.matrix td:first-child,.matrix th:first-child{position:sticky;left:0;z-index:3;
+  text-align:left;background:var(--panel);min-width:180px;border-right:1px solid var(--border)}
+.matrix thead th:first-child{z-index:4}
+.matrix td.cap{color:#111;font-weight:600;border-radius:4px;cursor:help}
+.matrix td.empty{color:var(--muted);opacity:.35}
+.matrix .grp{border-left:2px solid var(--border)}
+.matrix tbody tr:hover td:first-child{color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:5px 12px;font-size:12.5px;background:var(--panel)}
+.seg button.on{background:var(--accent);color:#fff}
+.seg button:hover{border-color:transparent}
+button.toggleon{border-color:var(--accent);color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:8px}
+.legbar{width:150px;height:10px;border-radius:5px;
+  background:linear-gradient(90deg,rgb(158,1,66),rgb(213,62,79),rgb(244,149,89),
+    rgb(255,224,130),rgb(230,245,152),rgb(153,213,148),rgb(26,120,55))}
+#tip{position:fixed;z-index:100;max-width:290px;background:var(--fg);color:var(--bg);
+  padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.5;pointer-events:none;
+  opacity:0;transition:opacity .12s;box-shadow:0 6px 22px rgba(0,0,0,.35)}
+#tip b{color:var(--bg)}
+/* Reactivity badges: which control drives a section. Accent = the Test-window
+   period dropdown; violet = clicking a model/row to focus. */
+.reacts{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+  vertical-align:middle;margin-left:10px;letter-spacing:.02em;white-space:nowrap}
+.reacts.win{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 42%,transparent)}
+.reacts.focus{background:color-mix(in srgb,#8b5cf6 18%,transparent);color:#8b5cf6;
+  border:1px solid color-mix(in srgb,#8b5cf6 48%,transparent)}
+/* Clickable rows + the currently-focused row (matches the violet focus badge). */
+tr.linkrow{cursor:pointer}
+tr.linkrow:hover>td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+tr.linkrow.focused>td{background:color-mix(in srgb,#8b5cf6 15%,transparent)}
+tr.linkrow.focused>td:first-child{box-shadow:inset 3px 0 0 #8b5cf6}
+#focusBar{color:var(--muted);font-size:12px;margin:2px 0 0}
+#focusBar b{color:#8b5cf6}
+</style>
+</head>
+<body>
+<header>
+  <h1>grian — trading dashboard</h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <label class="meta">Region <select id="regionSel"></select></label>
+  <button id="curatedBtn" class="toggleon" data-tip="Show only the models worth comparing: the best config in each family×output (LEAR/tree × point/quantile), the champion, the quantile-GBM that carries the probabilistic dispatch grid, and one simple baseline (autoregression). Dominated and weak variants are hidden — turn off for all 96 configs.">★ Key models</button>
+  <button id="themeBtn" title="Toggle light/dark">◐ Theme</button>
+</header>
+<main>
+  <section id="windowSection">
+    <h2>Test window</h2>
+    <div class="sub">Every configuration is evaluated by walk-forward over one identical span
+      (train on all history to date, trade the next day). Capture &amp; regret below are recomputed
+      live over the window you choose — an identical test set for every model.</div>
+    <div class="sub" style="margin-top:6px">Sections are tagged by what drives them:
+      <span class="reacts win">⟳ test&nbsp;window</span> reacts to the period dropdown above ·
+      <span class="reacts focus">◉ focused&nbsp;model</span> reacts to clicking a model / table row.
+      <span id="focusBar"></span></div>
+    <div class="card wbar">
+      <label>Preset <select id="winPreset"></select></label>
+      <label>From <input type="date" id="winStart"></label>
+      <label>To <input type="date" id="winEnd"></label>
+      <span class="wnote" id="winNote"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Headline <span class="reacts win">⟳ test&nbsp;window</span></h2>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section>
+    <h2>Trial summary <span class="reacts win">⟳ test&nbsp;window</span></h2>
+    <div class="sub">Hover any column header, model or executor for a definition. Click a header to sort, or
+      <b>click a row to focus every plot below on that config</b>. Capture, regret &amp; revenue reflect the
+      selected test window; MAE/RMSE/Sharpe are over the full pool.</div>
+    <div class="card"><div class="tablewrap"><table id="summary"></table></div></div>
+  </section>
+
+  <section>
+    <h2>Model configurations</h2>
+    <div class="sub">One row per forecaster. Hover a column header for what the feature means,
+      or the model name for a full description. <b>Click a row to focus every
+      <span class="reacts focus">◉ focused&nbsp;model</span> plot below on that model.</b></div>
+    <div class="card"><div class="tablewrap"><table id="specTbl" class="spec"></table></div></div>
+  </section>
+
+  <section>
+    <h2>Capture matrix <span class="reacts win">⟳ test&nbsp;window</span> <span class="sub" style="display:inline">(model × dispatch)</span></h2>
+    <div class="sub">Every model against every dispatch system it was run on. Greener is closer to a
+      perfect-foresight trader. Hover a dispatch column for how it turns forecasts into trades, or any
+      cell for the exact numbers. Switch the metric and the test period with the controls.</div>
+    <div class="controls">
+      <label>Metric</label>
+      <span class="seg" id="metricSeg">
+        <button data-m="balanced" class="on" data-tip="<b>Balanced capture</b> = mean of the per-calendar-month capture ratios inside the window. Weights every month equally, so it isn't dominated by the 2–3 mega-spike days that swamp a pooled annual number.">Balanced</button>
+        <button data-m="pooled" data-tip="<b>Pooled capture</b> = total revenue ÷ total oracle revenue over the whole window (value-weighted). High-variance: essentially 'did you catch the big spike days'.">Pooled</button>
+      </span>
+      <span class="wnote" id="matrixNote"></span>
+    </div>
+    <div class="card">
+      <div class="tablewrap"><table id="matrix" class="matrix"></table></div>
+      <div class="legend"><span>Capture</span><span>&#8804;0.25</span><span class="legbar"></span><span>0.60+</span>
+        <span class="dash">empty = not run on that dispatch</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Balanced model selection <span class="reacts focus">◉ focused&nbsp;model</span> <span class="sub" style="display:inline">(good everywhere, or only on the spikes?)</span></h2>
+    <div class="sub">Each model shown at its best dispatch. Pick one that holds up across periods <em>and</em> metrics,
+      not one that only wins the spike days. Respects the ★ Key-models filter.</div>
+    <div class="controls">
+      <label>View</label>
+      <span class="seg" id="selView">
+        <button data-v="period" class="on" data-tip="Capture through the year — quarter by quarter, plus the spike (Jan) and calm (Sep) stress months. A flat, high line is a robust model; a line that collapses in a period is fragile.">Across periods</button>
+        <button data-v="metric" data-tip="Every model scored on five axes at once, normalised 0–1 across the shown models: Capture, forecast MAE-skill, Sharpe, low drawdown, and consistency across quarters. A large, round shape is the balanced pick.">Across metrics</button>
+      </span>
+      <label id="selMetricWrap">Metric
+        <select id="selMetric">
+          <option value="balanced">Capture (balanced)</option>
+          <option value="pooled">Capture (pooled)</option>
+          <option value="regret">Regret %</option>
+        </select>
+      </label>
+      <span class="wnote">Tip: click a legend entry to isolate a model.</span>
+    </div>
+    <div class="card"><div id="selChart" class="chart tall"></div></div>
+  </section>
+
+  <section>
+    <h2>Equity curves <span class="reacts win">⟳ test&nbsp;window</span> <span class="reacts focus">◉ focused&nbsp;model</span></h2>
+    <div class="sub">Daily cumulative revenue vs the perfect-foresight oracle (dashed); the shaded band is the
+      selected test window, and the panel below shows the actual daily peak price on the same dates — so you
+      can see each scarcity spike step the revenue curves up. The focused model is drawn bold; others dim.</div>
+    <div class="controls"><label>Trials</label><select id="eqSel" multiple size="4"></select></div>
+    <div class="card"><div id="equityChart" class="chart tall"></div></div>
+  </section>
+
+  <section>
+    <h2>Forecast vs actual <span class="reacts focus">◉ focused&nbsp;model</span> <span class="sub" style="display:inline">(every execution pattern — drag the slider to pan)</span></h2>
+    <div class="sub">Actual price against the model's forecast under each executor. The recorded forecast is the
+      model's <em>point forecast</em>, which is the same no matter how the fan is dispatched — so dispatch-only
+      variants (point OL vs spike-gated MPC, or robust / EV / CVaR) draw the <em>same</em> line, shown with
+      different dash styles where they overlap. The only thing that changes the forecast itself is the
+      <b>re-forecast cadence</b>: <b>open-loop</b> is the raw day-ahead forecast committed once per day;
+      <b>MPC 30-min</b> re-forecasts intraday, so you see its ever-fresh near-term view.</div>
+    <div class="controls"><label>Model</label><select id="rawSel"></select></div>
+    <div class="card"><div id="rawChart" class="chart tall"></div></div>
+  </section>
+
+  <section id="fanSection">
+    <h2>Day-ahead forecast trajectory <span class="reacts focus">◉ focused&nbsp;model</span> <span class="sub" style="display:inline">(one committed forecast vs what happened)</span></h2>
+    <div class="sub">The full 48-step forecast a config commits at a single origin (midnight), plotted against the
+      prices that actually followed — how good was the day-ahead plan? Shown only for configs that commit a
+      day-ahead trajectory (open-loop / daily-reforecast); an every-interval MPC has no single day-ahead plan,
+      so it's hidden.</div>
+    <div class="controls"><label>Trial</label><select id="fanSel"></select>
+      <label>Origin</label><select id="fanOrigin"></select></div>
+    <div class="card"><div id="fanChart" class="chart"></div></div>
+  </section>
+
+  <section id="qfanSection">
+    <h2>Quantile forecast fan <span class="reacts focus">◉ focused&nbsp;model</span> <span class="sub" style="display:inline">(the uncertainty the robust dispatch reasons over)</span></h2>
+    <div class="controls"><label>Model</label><select id="qfanSel"></select>
+      <label>Day</label><select id="qfanDay"></select></div>
+    <div class="card"><div id="qfanChart" class="chart tall"></div></div>
+  </section>
+
+  <section>
+    <h2>Daily revenue <span class="reacts focus">◉ focused&nbsp;model</span></h2>
+    <div class="controls"><label>Trial</label><select id="drSel"></select></div>
+    <div class="card"><div id="revChart" class="chart"></div></div>
+  </section>
+
+  <section>
+    <h2>Deep analytics <span class="reacts focus">◉ focused&nbsp;model</span></h2>
+    <div class="controls"><label>Trial</label><select id="anSel"></select></div>
+    <div class="tabs" id="anTabs">
+      <div class="tab active" data-pane="paneErr">Error by hour</div>
+      <div class="tab" data-pane="paneRev">Revenue by hour</div>
+      <div class="tab" data-pane="paneDisp">Dispatch</div>
+      <div class="tab" data-pane="paneWorst">Worst days</div>
+    </div>
+    <div class="card">
+      <div class="tabpane active" id="paneErr"><div id="errChart" class="chart"></div></div>
+      <div class="tabpane" id="paneRev"><div id="rbhChart" class="chart"></div></div>
+      <div class="tabpane" id="paneDisp"><div class="kpis" id="dispKpis"></div></div>
+      <div class="tabpane" id="paneWorst"><div class="tablewrap"><table id="worstTbl"></table></div></div>
+    </div>
+  </section>
+</main>
+<div id="tip"></div>
+
+<script>
+const DATA = /*__DATA__*/;
+const D = DATA.detail, T = DATA.trials, META = DATA.meta, COMMON = DATA.common || {};
+const $ = id => document.getElementById(id);
+
+/* ---- focus: the one config/model every "◉ focused model" plot snaps to ---- */
+let FOCUS = null;         // focused config (trial name)
+let FOCUS_MODEL = null;   // its model (drives per-model surfaces)
+function markFocused(){
+  // Highlight the focused row across every clickable table + the caption.
+  document.querySelectorAll("tr.linkrow").forEach(tr => {
+    const hit = (tr.dataset.name && tr.dataset.name === FOCUS)
+             || (tr.dataset.model && tr.dataset.model === FOCUS_MODEL);
+    tr.classList.toggle("focused", !!hit);
+  });
+  const fb = $("focusBar");
+  if(fb){
+    const t = FOCUS ? cfgOf(FOCUS) : null;
+    fb.innerHTML = t ? ` · focused: <b>${t.model} · ${EXEC_LABEL[t.executor]||t.executor}</b>`
+                     : " · click any model row to focus the ◉ plots";
+  }
+}
+
+/* ---- glossary: metric + model explanations shown on hover ---- */
+const METRIC_TIPS = {
+  capture:"<b>Capture ratio</b> = your revenue ÷ perfect-foresight (oracle) revenue over the "
+    +"selected window. 1.00 means you matched an omniscient trader on the same battery; higher is better.",
+  regret_abs:"<b>Regret ($)</b> = oracle revenue − your revenue over the selected window: the "
+    +"dollars left on the table versus perfect foresight. Lower is better.",
+  regret_pct:"<b>Regret (%)</b> = 1 − capture: revenue forgone as a share of the oracle. Lower is better.",
+  total_revenue:"<b>Revenue</b> earned over the selected window, in dollars. Scale depends on "
+    +"window length — prefer capture ratio when comparing configs.",
+  mae:"<b>MAE</b> — mean absolute price-forecast error over the full pool, $/MWh. Lower is better.",
+  rmse:"<b>RMSE</b> — root mean squared error over the full pool, $/MWh; penalises large misses more than MAE.",
+  mae_skill:"<b>Skill</b> = 1 − MAE ÷ naive MAE, vs the similar-day naive baseline in the same "
+    +"region. Positive = better than naive.",
+  sharpe_ratio:"<b>Sharpe</b> — mean ÷ std of daily revenue (annualised), full pool. Higher = steadier P&amp;L.",
+  peak_drawdown:"<b>Peak drawdown</b> — largest peak-to-trough fall in cumulative revenue, $, full pool. Lower is better.",
+  executor:"<b>Executor</b> — how forecasts become trades: open-loop plans the whole day once, "
+    +"MPC re-solves and re-forecasts every 30 min off the true state of charge.",
+};
+const EXECUTOR_TIPS = {
+  openloop:"<b>Open-loop</b>: forecast the whole day once at midnight, solve one dispatch LP, "
+    +"execute that plan all day with no correction — a committed day-ahead plan.",
+  point_ol:"<b>Point, open-loop</b>: day-ahead point forecast, one LP solved once, executed all day. "
+    +"The committed-plan baseline for the probabilistic models.",
+  point:"<b>Point MPC</b>: re-solve the LP every interval from the true state of charge, using the "
+    +"point forecast — but no spike gate, so it can't react to scarcity the forecast missed.",
+  mpc30:"<b>MPC (30-min)</b>: receding-horizon control — re-solve the LP and regenerate the forecast "
+    +"every 30 min from the true state of charge and observed price. The 5-min-era champion.",
+  mpc5:"<b>MPC (5-min)</b>: like MPC 30-min but re-solves every dispatch interval. Slower to simulate.",
+  mpc_spike:"<b>Spike-gated MPC</b>: forecast once per day, re-solve every interval — but only <i>observe</i> "
+    +"(react to) the live price when it clears a $3,000 gate. Catches scarcity spikes the day-ahead forecast "
+    +"missed, while staying provably open-loop the rest of the time. <b>The winning executor.</b>",
+  mpc_spikegate:"<b>Spike-gated MPC</b>: forecast once per day, re-solve every interval, and <i>observe</i> the "
+    +"live price only above a $3,000 gate. Discharges into genuine scarcity the forecast missed; open-loop "
+    +"otherwise (zero harm on calm days). <b>The winning executor.</b>",
+  robust:"<b>Scenario-robust</b>: solve the LP on every quantile path separately (each keeps its own price "
+    +"ranking) and trade only where all scenarios agree — the min action across the fan. Uncertainty-aware.",
+  ev:"<b>Expected-value scenario</b>: dispatch on the probability-weighted mean over the whole quantile fan, "
+    +"rather than a single point path. Re-solved intraday.",
+  ev_ol:"<b>Expected-value, open-loop</b>: the EV scenario dispatch committed once per day (no reforecast).",
+  cvar_010:"<b>CVaR λ=0.10</b>: scenario dispatch that shades slightly toward the bad revenue tail. "
+    +"λ blends expected value (0) with worst-case (1); 0.10 is nearly risk-neutral.",
+  cvar_025:"<b>CVaR λ=0.25</b>: scenario dispatch weighting the adverse tail a quarter of the way to worst-case.",
+  cvar_050:"<b>CVaR λ=0.50</b>: scenario dispatch balancing expected value and worst-case tail evenly.",
+  cvar_075:"<b>CVaR λ=0.75</b>: scenario dispatch leaning conservative — mostly the bad-tail outcome.",
+  cvar_090:"<b>CVaR λ=0.90</b>: scenario dispatch that is almost fully worst-case (robust).",
+  cvar050_ol:"<b>CVaR λ=0.50, open-loop</b>: the λ=0.5 tail-aware dispatch committed once per day.",
+  meancvar_l50_a50:"<b>Mean-CVaR (λ0.5, α0.5)</b>: one joint LP (Rockafellar–Uryasev) trading off mean revenue "
+    +"and the CVaR of the worst 50% of scenarios. λ = risk weight, α = tail fraction.",
+  meancvar_l50_a10:"<b>Mean-CVaR (λ0.5, α0.1)</b>: joint mean/CVaR LP focused on the worst 10% tail (α=0.1).",
+  meancvar_l90_a10:"<b>Mean-CVaR (λ0.9, α0.1)</b>: joint LP weighting the worst-10% tail heavily (λ=0.9) — most conservative.",
+  meancvar_ol:"<b>Mean-CVaR, open-loop</b>: the joint mean/CVaR dispatch committed once per day.",
+};
+function executorTip(ex){ return EXECUTOR_TIPS[ex] || ("<b>"+ex+"</b> — dispatch executor."); }
+const EXEC_LABEL = {openloop:"open-loop", point_ol:"point OL", point:"point MPC",
+  mpc30:"MPC 30-min", mpc5:"MPC 5-min", mpc_spike:"spike-gated MPC", mpc_spikegate:"spike-gated MPC",
+  robust:"robust", ev:"EV", ev_ol:"EV OL",
+  cvar_010:"CVaR .10", cvar_025:"CVaR .25", cvar_050:"CVaR .50", cvar_075:"CVaR .75",
+  cvar_090:"CVaR .90", cvar050_ol:"CVaR .50 OL",
+  meancvar_l50_a50:"m-CVaR .5/.5", meancvar_l50_a10:"m-CVaR .5/.1",
+  meancvar_l90_a10:"m-CVaR .9/.1", meancvar_ol:"m-CVaR OL"};
+// Same dispatch, two harnesses (point models vs quantile fans) — one column.
+const EXEC_CANON = {mpc_spikegate:"mpc_spike"};
+const canonExec = e => EXEC_CANON[e] || e;
+// Matrix columns, left→right. Plain executors plus two COLLAPSED groups — the
+// CVaR λ-ladder and the mean-CVaR variants each show a single "best" column (the
+// highest-capture member per model) so the many near-identical risk-shaping
+// columns don't drown the comparison. `grp:1` starts a faint visual divider.
+const MATRIX_COLUMNS = [
+  {id:"openloop", grp:1}, {id:"point_ol"}, {id:"point"},
+  {id:"mpc30", grp:1}, {id:"mpc_spike"},
+  {id:"robust", grp:1}, {id:"ev"},
+  {id:"cvar", label:"CVaR ᵇᵉˢᵗ", members:["cvar_010","cvar_025","cvar_050","cvar_075","cvar_090"],
+    tip:"<b>CVaR — best of the λ ladder</b>: for each model, the highest-capture result across CVaR "
+      +"λ∈{.10,.25,.50,.75,.90} (λ dials expected-value→worst-case). The full ladder is in the Trial summary."},
+  {id:"meancvar", label:"m-CVaR ᵇᵉˢᵗ", members:["meancvar_l50_a50","meancvar_l50_a10","meancvar_l90_a10"],
+    tip:"<b>Mean-CVaR — best variant</b>: for each model, the best-capture result across the joint "
+      +"mean/CVaR λ×α grid (Rockafellar–Uryasev LP)."},
+  {id:"ev_ol", grp:1}, {id:"cvar050_ol"}, {id:"meancvar_ol"},
+];
+// Curated view: one representative per executor family, and only the models
+// worth comparing — the best config in each family×output cell, the champion,
+// the one quantile-GBM that carries the probabilistic executor grid, and a
+// single defensible baseline. The dominated/weak variants (naive floor, plain
+// lear, ridge/elasticnet, scarcity/DFL, conformal, etc.) are left to "All models".
+const CURATED_COLS = new Set(["openloop","point_ol","mpc_spike","robust","ev","cvar","meancvar"]);
+const CURATED_MODELS = new Set([
+  "autoregression",                 // simplest defensible baseline (0.47)
+  "lear_weather",                   // best point LEAR (0.50)
+  "lear_qmean_torch_fourier",       // best quantile LEAR (0.49)
+  "lightgbm_rich_fourier",          // best point tree (0.52)
+  "lightgbm_qmean",                 // quantile GBM that ran robust/EV/CVaR/m-CVaR (0.53)
+  "lightgbm_qmean_weather_fourier", // champion, best overall (0.56)
+]);
+let curated = true;
+const MODEL_TIPS = [
+  ["naive","<b>Similar-day naive</b>: predicts each period from the most recent similar day "
+    +"(same weekday &amp; time). The floor every learned model must beat."],
+  ["autoregression","<b>Autoregression</b>: linear model on recent price lags plus calendar terms."],
+  ["qra","<b>QRA ensemble</b>: quantile regression averaging — blends the quantile fans of several "
+    +"models into one better-calibrated fan. Probabilistic (emits a full fan)."],
+  ["lear_qmean_torch","<b>LEAR quantile fan (torch)</b>: linear quantile regression fit by one batched "
+    +"gradient-descent pass — a single pinball fit for the whole fan, replacing sklearn's ~100 LP solves "
+    +"(~40× faster). The calendar block is left unpenalised. Emits a probabilistic fan."],
+  ["lear_lean","<b>LEAR (lean)</b>: Lasso on a raw price-lag basis only — no rolling smoothers, to test "
+    +"whether the smoothers were flattening peaks."],
+  ["ols_lean","<b>OLS (lean)</b>: ordinary least squares on the raw price-lag basis — richer AR, no penalty."],
+  ["ridge","<b>Ridge</b>: L2-penalised linear model on the rich feature set."],
+  ["elasticnet","<b>ElasticNet</b>: combined L1+L2 penalised linear model on the rich feature set."],
+  ["lear","<b>LEAR</b>: L1-penalised (Lasso) linear model on the rich engineered feature set — the classic "
+    +"electricity-price forecasting benchmark."],
+  ["lightgbm_qmean","<b>LightGBM quantile</b>: gradient-boosted models fit at several quantile levels, "
+    +"giving a full predictive <i>fan</i> (used by the probabilistic executors); a mean is integrated for point dispatch."],
+  ["lightgbm_rich","<b>LightGBM (rich)</b>: gradient-boosted trees on the full feature set — "
+    +"price lags, rolling stats, demand, calendar, momentum and scarcity features. Point forecast."],
+  ["lightgbm","<b>LightGBM</b>: gradient-boosted decision trees on engineered price features."],
+];
+function modelTip(model){
+  const m = (model||"").toLowerCase();
+  let base = "<b>" + model + "</b>: learned price forecaster.";
+  for(const [k,v] of MODEL_TIPS) if(m.includes(k)) { base = v; break; }
+  if(m.includes("weather")) base += " <i>+ ERA5 weather features (solar irradiance, temperature, wind).</i>";
+  return base;
+}
+
+/* ---- model spec table: what differentiates each forecaster ---- */
+const FEATURE_TIPS = {
+  family:"<b>Model family</b> — the learner: a Naive baseline, an autoregression, a penalised linear model "
+    +"(LEAR/Ridge/ElasticNet/OLS), or gradient-boosted trees (LightGBM).",
+  type:"<b>Output</b> — a <i>point</i> forecast (one price per step) or a full <i>quantile fan</i> "
+    +"(a distribution the probabilistic dispatch systems reason over). A point mean is integrated from the fan when needed.",
+  calendar:"<b>Calendar encoding</b> — how hour / day-of-week / month enter the model: one-hot dummies, "
+    +"cyclic Fourier sin/cos harmonics, or ordinal integers (natural for trees, which split on them).",
+  weather:"<b>Weather</b> — ERA5 features (solar irradiance, temperature, wind speed) added alongside the price/demand features.",
+  features:"<b>Feature set</b> — Rich = full engineered set (lags, rolling stats, demand, momentum); "
+    +"Lean = raw price lags only; +Scarcity = spike-precursor features; +DFL = decision-focused sample weighting; "
+    +"Conformal = split-conformal-calibrated fan.",
+  params:"<b>Key hyperparameters</b> — the defining knobs for the family: L1 strength α for Lasso/LEAR, "
+    +"trees × learning rate for LightGBM, quantile levels for a fan.",
+};
+const FAM_ORDER = {"Naive":0,"Autoregression":1,"LEAR (Lasso)":2,"Ridge":3,"ElasticNet":4,"OLS":5,"LightGBM":6};
+function fam(m){
+  if(m.startsWith("naive")) return "Naive";
+  if(m.startsWith("autoregression")) return "Autoregression";
+  if(m.startsWith("lightgbm")) return "LightGBM";
+  if(m.startsWith("ridge")) return "Ridge";
+  if(m.startsWith("elasticnet")) return "ElasticNet";
+  if(m.startsWith("ols")) return "OLS";
+  if(m.startsWith("lear")) return "LEAR (Lasso)";
+  return "—";
+}
+const isQuantile = m => m.includes("qmean") || m.includes("qra");
+function calEnc(m){
+  if(m.includes("fourier")) return "Fourier";
+  if(m.includes("ordinal")) return "Ordinal";
+  if(m.startsWith("lightgbm")) return "Ordinal";
+  return "One-hot";
+}
+function featureSet(m){
+  if(m.includes("scarcity")) return "Rich +Scarcity";
+  if(m.includes("dfl")) return "Rich +DFL";
+  if(m.includes("lean")) return "Lean (raw lags)";
+  if(m.includes("_cal")) return "Rich (conformal)";
+  if(m.startsWith("autoregression")) return "Lags + calendar";
+  if(m.startsWith("naive")) return "—";
+  return "Rich";
+}
+function keyParams(m){
+  const q = isQuantile(m) ? " · q[.05,.5,.9,.98]" : "";
+  if(m.startsWith("naive")) return "—";
+  if(m.startsWith("autoregression")) return "AR lags + calendar";
+  if(m.startsWith("lightgbm")) return "150 trees · lr 0.05" + q;
+  if(m.startsWith("ridge")) return "L2 penalty";
+  if(m.startsWith("elasticnet")) return "L1 + L2 penalty";
+  if(m.startsWith("ols")) return "no penalty (OLS)";
+  if(m.startsWith("lear")) return "α = 0.01 (L1)" + q;
+  return "—";
+}
+const allModels = () => [...new Set(baseRows().map(t=>t.model))];
+const sortedModels = () => allModels().sort((a,b)=>{
+  const fa=FAM_ORDER[fam(a)]??9, fb=FAM_ORDER[fam(b)]??9;
+  return fa!==fb ? fa-fb : a.localeCompare(b);
+});
+function renderSpecTable(){
+  const cols = [["family","Family"],["type","Output"],["calendar","Calendar"],
+    ["weather","Weather"],["features","Feature set"],["params","Key params"]];
+  let h = "<thead><tr><th>Model</th>";
+  for(const [k,l] of cols) h += `<th data-tip="${FEATURE_TIPS[k]}">${l}</th>`;
+  h += "</tr></thead><tbody>";
+  for(const m of sortedModels()){
+    const type = isQuantile(m)
+      ? "<span class='badge q'>quantile fan</span>" : "<span class='badge'>point</span>";
+    const wx = m.includes("weather")
+      ? "<span class='badge on'>✓ ERA5</span>" : "<span class='dash'>–</span>";
+    h += `<tr data-model="${m}" class="linkrow">`
+      + `<td class="model" data-tip="${modelTip(m)}">${m}</td>`
+      + `<td>${fam(m)}</td><td>${type}</td><td>${calEnc(m)}</td>`
+      + `<td>${wx}</td><td>${featureSet(m)}</td><td>${keyParams(m)}</td>`
+      + "</tr>";
+  }
+  $("specTbl").innerHTML = h + "</tbody>";
+  markFocused();
+}
+
+/* ---- capture matrix: model × dispatch, coloured by capture over the window ---- */
+let matrixMetric = "balanced";
+function capForRow(daily, i0, i1, c, mode){
+  if(!daily) return null;
+  if(mode==="pooled"){
+    const o = sumSlice(c.oracle,i0,i1);
+    return o>0 ? sumSlice(daily,i0,i1)/o : null;
+  }
+  const mo = {};                                   // balanced: mean of monthly ratios
+  for(let i=i0;i<=i1;i++){
+    const k = c.dates[i].slice(0,7);
+    (mo[k] = mo[k] || [0,0]); mo[k][0]+=daily[i]||0; mo[k][1]+=c.oracle[i]||0;
+  }
+  const rs = []; for(const k in mo){ const [r,o]=mo[k]; if(o>0) rs.push(r/o); }
+  return rs.length ? rs.reduce((a,b)=>a+b,0)/rs.length : null;
+}
+// Capture colour scale. The domain is TIGHT (CAP_LO..CAP_HI ≈ where the models
+// actually land) and the palette has many stops, so cells in the 0.4–0.6 cluster
+// separate clearly instead of all reading "green".
+const CAP_LO = 0.25, CAP_HI = 0.60;
+const CAP_STOPS = [
+  [0.00, [158, 1, 66]],     // deep magenta-red
+  [0.15, [213, 62, 79]],    // red
+  [0.32, [244, 149, 89]],   // orange
+  [0.48, [255, 224, 130]],  // amber
+  [0.62, [230, 245, 152]],  // pale lime
+  [0.78, [153, 213, 148]],  // green
+  [1.00, [26, 120, 55]],    // deep green
+];
+function capColor(v){
+  const t = Math.max(0, Math.min(1, (v - CAP_LO) / (CAP_HI - CAP_LO)));
+  for(let i=1;i<CAP_STOPS.length;i++){
+    if(t <= CAP_STOPS[i][0]){
+      const [t0,c0] = CAP_STOPS[i-1], [t1,c1] = CAP_STOPS[i];
+      const f = (t1===t0) ? 0 : (t - t0)/(t1 - t0);
+      const c = c0.map((a,k)=>Math.round(a + (c1[k]-a)*f));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+  }
+  const last = CAP_STOPS[CAP_STOPS.length-1][1];
+  return `rgb(${last[0]},${last[1]},${last[2]})`;
+}
+// One matrix cell: a plain executor, or the best member of a collapsed group.
+function matrixCell(execMap, col, idx, c){
+  if(!execMap || !idx) return null;
+  const cellFor = (r, exLabel, extra) => {
+    if(!r || !r.daily) return null;
+    const val = capForRow(r.daily, idx[0], idx[1], c, matrixMetric);
+    if(val==null) return null;
+    const alt = matrixMetric==="balanced" ? "pooled" : "balanced";
+    const other = capForRow(r.daily, idx[0], idx[1], c, alt);
+    const rev = sumSlice(r.daily, idx[0], idx[1]);
+    const tip = `<b>${r.model}</b><br>${exLabel} · ${matrixMetric} <b>${val.toFixed(3)}</b>`
+      + `<br>${alt}: ${other==null?"—":other.toFixed(3)} · revenue $${Math.round(rev).toLocaleString()}`
+      + (extra||"");
+    return {val, tip};
+  };
+  if(!col.members) return cellFor(execMap[col.id], EXEC_LABEL[col.id]||col.id);
+  let best=null, bestEx=null, nPresent=0;            // collapsed group → best member
+  for(const ex of col.members){
+    const r = execMap[ex]; if(!r || !r.daily) continue;
+    nPresent++;
+    const v = capForRow(r.daily, idx[0], idx[1], c, matrixMetric);
+    if(v!=null && (best==null || v>best)){ best=v; bestEx=ex; }
+  }
+  if(best==null) return null;
+  const note = nPresent > 1 ? `<br><i>best of ${nPresent} ${col.id} variants</i>` : "";
+  return cellFor(execMap[bestEx], EXEC_LABEL[bestEx]||bestEx, note);
+}
+function renderMatrix(){
+  const c = commonForRegion();
+  const rows = windowedRows();
+  const idx = c ? windowIndices() : null;
+  const byModel = {};
+  for(const r of rows){ (byModel[r.model] = byModel[r.model] || {})[canonExec(r.executor)] = r; }
+  const has = col => rows.some(r => col.members ? col.members.includes(canonExec(r.executor))
+    : canonExec(r.executor)===col.id);
+  const cols = MATRIX_COLUMNS.filter(col => (!curated || CURATED_COLS.has(col.id)) && has(col));
+  let h = "<thead><tr><th>Model &#8726; dispatch</th>";
+  for(const col of cols){
+    const cls = col.grp ? "grp" : "";
+    h += `<th class="${cls}" data-tip="${col.tip || executorTip(col.id)}">${col.label || EXEC_LABEL[col.id] || col.id}</th>`;
+  }
+  h += "</tr></thead><tbody>";
+  const models = sortedModels();
+  for(const m of models){
+    h += `<tr data-model="${m}" class="linkrow"><td class="model" data-tip="${modelTip(m)}">${m}</td>`;
+    for(const col of cols){
+      const cls = col.grp ? "grp" : "";
+      const cell = matrixCell(byModel[m], col, idx, c);
+      h += cell
+        ? `<td class="cap ${cls}" style="background:${capColor(cell.val)}" data-tip="${cell.tip}">${cell.val.toFixed(2)}</td>`
+        : `<td class="empty ${cls}">·</td>`;
+    }
+    h += "</tr>";
+  }
+  $("matrix").innerHTML = h + "</tbody>";
+  const idxN = idx ? (idx[1]-idx[0]+1) : 0;
+  $("matrixNote").textContent = `${matrixMetric} capture · ${models.length} models `
+    + `× ${cols.length} dispatch systems · ${idxN} days`;
+  markFocused();
+}
+$("metricSeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  matrixMetric = b.dataset.m;
+  $("metricSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x===b));
+  renderMatrix();
+});
+$("curatedBtn").onclick = () => {
+  curated = !curated;
+  $("curatedBtn").classList.toggle("toggleon", curated);
+  $("curatedBtn").textContent = curated ? "★ Key models" : "☆ All models";
+  repopulate(); renderAll();
+};
+
+/* ---- balanced model selection: periods trajectory + metrics radar ---- */
+let selView = "period";
+// Chronological quarters first (a true trajectory), then the spike/calm stress
+// months and the full-year reference as trailing anchors.
+const SEL_PERIODS = [["q3_25","Q3 25"],["q4_25","Q4 25"],["q1_26","Q1 26"],["q2_26","Q2 26"],
+  ["spike_jan26","Spike Jan"],["calm_sep25","Calm Sep"],["full","Full yr"]];
+function periodRange(v, c){
+  const lo=c.dates[0], hi=c.dates[c.dates.length-1];
+  let [s,e] = NAMED_PERIODS[v] || [lo,hi];
+  s = s<lo?lo:s; e = e>hi?hi:e;
+  let i0 = c.dates.findIndex(d => d>=s); if(i0<0) i0=0;
+  let i1 = c.dates.length-1; for(let i=c.dates.length-1;i>=0;i--){ if(c.dates[i]<=e){ i1=i; break; } }
+  return [i0, i1<i0?i0:i1];
+}
+function selMetricValue(daily, i0, i1, c, metric){
+  if(metric==="regret"){ const p = capForRow(daily,i0,i1,c,"pooled"); return p==null?null:(1-p)*100; }
+  return capForRow(daily, i0, i1, c, metric);
+}
+// One config per curated model = its highest full-window balanced capture.
+function bestConfigs(){
+  const c = commonForRegion(); if(!c) return [];
+  const best = {};
+  for(const r of baseRows()){
+    if(!r.daily) continue;
+    const v = capForRow(r.daily, 0, c.dates.length-1, c, "balanced");
+    if(v==null) continue;
+    if(!best[r.model] || v > best[r.model].v) best[r.model] = {v, r};
+  }
+  return sortedModels().filter(m => best[m]).map(m => best[m].r);
+}
+function renderSelection(){
+  const c = commonForRegion(), el = $("selChart");
+  $("selMetricWrap").style.display = selView==="period" ? "" : "none";
+  const cfgs = bestConfigs();
+  if(!c || !cfgs.length){ Plotly.react(el, [], baseLayout()); return; }
+  if(selView==="metric") return renderSelectionRadar(cfgs, c);
+  const metric = $("selMetric").value;
+  const xlabels = SEL_PERIODS.map(p => p[1]);
+  const traces = cfgs.map(r => {
+    const isFocus = FOCUS_MODEL && r.model === FOCUS_MODEL;
+    return {
+      x: xlabels,
+      y: SEL_PERIODS.map(([v]) => { const [i0,i1]=periodRange(v,c); return selMetricValue(r.daily,i0,i1,c,metric); }),
+      name: r.model,                                  // executor is in the hover
+      type:"scatter", mode:"lines+markers",
+      opacity: (FOCUS_MODEL && !isFocus) ? 0.25 : 1,
+      line:{width: isFocus ? 3.5 : 2},
+      hovertemplate:`%{fullData.name} · ${EXEC_LABEL[r.executor]||r.executor}<br>%{x}: <b>%{y:.3f}</b><extra></extra>`,
+    };
+  });
+  const ytitle = metric==="regret" ? "Regret (%)" : (metric==="pooled" ? "Capture (pooled)" : "Capture (balanced)");
+  Plotly.react(el, traces, baseLayout(Object.assign({
+    hovermode:"closest",
+    xaxis:{title:"Period", gridcolor:cssv("--grid")},
+    yaxis:{title:ytitle, gridcolor:cssv("--grid"), tickformat: metric==="regret" ? ".0f" : ".2f"},
+  }, RIGHT_LEGEND)), CFG);
+}
+function renderSelectionRadar(cfgs, c){
+  const el = $("selChart");
+  const quarters = ["q3_25","q4_25","q1_26","q2_26"];
+  const raw = cfgs.map(r => {
+    const qv = quarters.map(v => { const [i0,i1]=periodRange(v,c); return capForRow(r.daily,i0,i1,c,"balanced"); })
+      .filter(x => x!=null);
+    const mean = qv.reduce((a,b)=>a+b,0)/(qv.length||1);
+    const sd = Math.sqrt(qv.reduce((a,b)=>a+(b-mean)**2,0)/(qv.length||1));
+    return { name:r.model, cap: capForRow(r.daily,0,c.dates.length-1,c,"balanced") ?? 0,
+      skill:r.mae_skill, sharpe:r.sharpe_ratio, dd:r.peak_drawdown, cons:sd };
+  });
+  const axes = ["Capture","MAE skill","Sharpe","Low drawdown","Consistency"];
+  const keys = ["cap","skill","sharpe","dd","cons"];
+  const lower = {dd:1, cons:1};                     // lower raw value is better → invert
+  const norm = {};
+  for(const k of keys){
+    const vals = raw.map(x=>x[k]).filter(v => v!=null && isFinite(v));
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    norm[k] = v => { if(v==null||!isFinite(v)) return 0; if(hi===lo) return 0.6;
+      const t=(v-lo)/(hi-lo); return lower[k] ? 1-t : t; };
+  }
+  const traces = raw.map(x => {
+    const isFocus = FOCUS_MODEL && x.name === FOCUS_MODEL;
+    return {
+      type:"scatterpolar", fill:"toself", name:x.name,
+      opacity: isFocus ? 0.6 : (FOCUS_MODEL ? 0.12 : 0.32),
+      line:{width: isFocus ? 2.6 : 1.5},
+      r: keys.map(k=>norm[k](x[k])).concat([norm[keys[0]](x[keys[0]])]),
+      theta: axes.concat([axes[0]]),
+      hovertemplate:"%{fullData.name}<br>%{theta}: %{r:.2f}<extra></extra>",
+    };
+  });
+  Plotly.react(el, traces, {
+    paper_bgcolor:"rgba(0,0,0,0)", font:{color:cssv("--fg"), size:12},
+    margin:{l:50, r:172, t:24, b:24},
+    hoverlabel:{bgcolor:cssv("--panel"), bordercolor:cssv("--border"), font:{color:cssv("--fg")}},
+    legend:{orientation:"v", x:1.02, xanchor:"left", y:1, yanchor:"top", font:{size:10}},
+    polar:{ bgcolor:"rgba(0,0,0,0)",
+      radialaxis:{visible:true, range:[0,1], gridcolor:cssv("--grid"), tickfont:{size:9}},
+      angularaxis:{gridcolor:cssv("--grid")} },
+  }, CFG);
+}
+$("selView").querySelectorAll("button").forEach(b => b.onclick = () => {
+  selView = b.dataset.v;
+  $("selView").querySelectorAll("button").forEach(x => x.classList.toggle("on", x===b));
+  renderSelection();
+});
+$("selMetric").onchange = renderSelection;
+
+/* ---- floating tooltip (fixed position → never clipped by scroll containers) ---- */
+const tip = $("tip");
+document.addEventListener("mouseover", e => {
+  const el = e.target.closest("[data-tip]");
+  if(el){ tip.innerHTML = el.dataset.tip; tip.style.opacity = 1; }
+});
+document.addEventListener("mousemove", e => {
+  if(tip.style.opacity === "1"){
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 300) + "px";
+    tip.style.top = Math.min(e.clientY + 16, innerHeight - 120) + "px";
+  }
+});
+document.addEventListener("mouseout", e => {
+  if(e.target.closest("[data-tip]")) tip.style.opacity = 0;
+});
+
+/* ---- theme ---- */
+function initTheme(){
+  const saved = localStorage.getItem("grian-theme");
+  if(saved) document.documentElement.setAttribute("data-theme", saved);
+}
+function cssv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+$("themeBtn").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme")
+    || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark":"light");
+  const next = cur === "dark" ? "light":"dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("grian-theme", next);
+  restyleCharts();     // tables are CSS-var-driven and reflow instantly; only
+                       // the Plotly charts bake colours and need a re-render.
+};
+initTheme();
+
+/* ---- Plotly layout theming ---- */
+function baseLayout(extra){
+  const lay = Object.assign({
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    font:{color:cssv("--fg"), size:12},
+    margin:{l:64,r:16,t:10,b:48},
+    xaxis:{gridcolor:cssv("--grid"), zerolinecolor:cssv("--grid")},
+    yaxis:{gridcolor:cssv("--grid"), zerolinecolor:cssv("--grid")},
+    legend:{orientation:"h", y:1.12, x:0, font:{size:11}},
+    // Theme the hover overlay explicitly — Plotly's default box is derived from
+    // the trace colour and clashes with the panel in one theme or the other.
+    hoverlabel:{bgcolor:cssv("--panel"), bordercolor:cssv("--border"),
+      font:{color:cssv("--fg"), size:12}},
+    showlegend:true
+  }, extra||{});
+  // Plotly.js v3 needs object titles ({text}); wrap strings and auto-fit margins.
+  for(const ax of ["xaxis","yaxis"]){
+    if(!lay[ax]) continue;
+    if(typeof lay[ax].title === "string") lay[ax].title = {text: lay[ax].title};
+    lay[ax].automargin = true;
+  }
+  return lay;
+}
+const CFG = {responsive:true, displayModeBar:false};
+// Many-series charts (equity, model-selection) put the legend in a vertical
+// column to the right, with margin reserved, so it never wraps over the plot.
+const RIGHT_LEGEND = {
+  legend:{orientation:"v", x:1.01, xanchor:"left", y:1, yanchor:"top", font:{size:10}},
+  margin:{l:64, r:172, t:12, b:48},
+};
+
+/* ---- helpers ---- */
+const region = () => $("regionSel").value;
+function trialsForRegion(){ return T.filter(t => t.region === region()); }
+// In the curated view keep ONE representative per dispatch family, so the
+// summary/selectors aren't swamped by the CVaR/mean-CVaR risk sweep or the
+// non-gated intraday MPC (mpc30/point — which collapse under observe_present
+// churn, Entry 034). Baselines, the spike-gated winner, and one each of the
+// probabilistic executors are kept.
+const CURATED_GOOD_EXECS = new Set(["openloop","point_ol","mpc_spike","mpc_spikegate",
+  "robust","ev","cvar_050","meancvar_l50_a50"]);
+// Rows feeding every comparison surface (spec table, matrix, summary, KPIs,
+// selection chart, equity, every per-trial selector) — narrowed to the curated
+// models AND representative executors when ★ Key models is on.
+function baseRows(){
+  const r = trialsForRegion();
+  return curated
+    ? r.filter(t => CURATED_MODELS.has(t.model) && CURATED_GOOD_EXECS.has(t.executor))
+    : r;
+}
+function key(name){ return name + "::" + region(); }
+function recentX(rec){
+  const t0 = new Date(rec.t0).getTime(), step = rec.dt_min*60000;
+  return Array.from({length: rec.n}, (_,i) => new Date(t0 + i*step));
+}
+function fmt(v, d=2){ return v==null ? "—" : (+v).toFixed(d); }
+function money(v){ return v==null ? "—" : "$"+Math.round(v).toLocaleString("en-US"); }
+
+/* ---- signed-log (asinh) price scale: readable spikes, handles negatives ---- */
+let PRICE_LOG = true;
+const asinh = x => (x==null ? null : Math.asinh(x));
+const PRICE_TICKS = [-1000,-100,-10,0,10,100,1000,10000];
+function priceY(vals){ return PRICE_LOG ? vals.map(asinh) : vals; }
+function priceYAxis(){
+  const base = {gridcolor:cssv("--grid")};
+  if(!PRICE_LOG) return Object.assign(base, {title:"Price ($/MWh)"});
+  return Object.assign(base, {
+    title:"Price ($/MWh, signed-log)",
+    tickvals: PRICE_TICKS.map(asinh),
+    ticktext: PRICE_TICKS.map(v => "$"+v.toLocaleString("en-US")),
+  });
+}
+function optionList(sel, names, keepFirst){
+  const prev = sel.value;
+  sel.innerHTML = "";
+  for(const n of names){ const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o); }
+  if(keepFirst && names.length) sel.value = names.includes(prev)?prev:names[0];
+}
+
+/* ---- region selector ---- */
+const regions = [...new Set(T.map(t=>t.region))].sort();
+optionList($("regionSel"), regions, true);
+$("meta").textContent = `${META.n_trials} configs · built ${META.generated_at} · ${META.git_sha.slice(0,8)}`;
+
+/* ---- test window: recompute capture over any span from daily series ---- */
+let WIN = {start:null, end:null};
+const commonForRegion = () => COMMON[region()] || null;
+function monthsAgo(dateStr, m){ const d=new Date(dateStr); d.setMonth(d.getMonth()-m); return d.toISOString().slice(0,10); }
+
+// Named calendar periods — the meaningful spans to compare over (spike vs calm
+// month, quarters, full year), clamped to the evaluated span.
+const NAMED_PERIODS = {
+  full:["2025-07-01","2026-06-30"],
+  spike_jan26:["2026-01-01","2026-01-31"], calm_sep25:["2025-09-01","2025-09-30"],
+  q3_25:["2025-07-01","2025-09-30"], q4_25:["2025-10-01","2025-12-31"],
+  q1_26:["2026-01-01","2026-03-31"], q2_26:["2026-04-01","2026-06-30"],
+};
+function applyPreset(v){
+  const c = commonForRegion(); if(!c) return;
+  const lo=c.dates[0], hi=c.dates[c.dates.length-1];
+  if(NAMED_PERIODS[v]){
+    let [s,e] = NAMED_PERIODS[v];
+    s = s<lo?lo:s; e = e>hi?hi:e;
+    WIN = {start:s, end:e}; $("winStart").value=s; $("winEnd").value=e; return;
+  }
+  let start = lo;
+  if(v!=="all"){ const cand = monthsAgo(hi, +v); start = cand < lo ? lo : cand; }
+  WIN = {start, end:hi};
+  $("winStart").value = start; $("winEnd").value = hi;
+}
+function setupWindow(){
+  const c = commonForRegion();
+  const ps = $("winPreset");
+  const period = [["full","Full span"],["spike_jan26","Spike month · Jan 26"],
+    ["calm_sep25","Calm month · Sep 25"],["q3_25","Q3 2025"],["q4_25","Q4 2025"],
+    ["q1_26","Q1 2026"],["q2_26","Q2 2026"]];
+  const trailing = [["all","All"],["24","24 mo"],["12","12 mo"],["6","6 mo"],["3","3 mo"],["1","1 mo"]];
+  const opts = a => a.map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+  ps.innerHTML = `<optgroup label="Period">${opts(period)}</optgroup>`
+    + `<optgroup label="Trailing window">${opts(trailing)}</optgroup>`;
+  const disabled = !c;
+  $("winStart").disabled = $("winEnd").disabled = disabled;
+  if(!c){ $("winStart").value=$("winEnd").value=""; WIN={start:null,end:null}; return; }
+  const lo=c.dates[0], hi=c.dates[c.dates.length-1];
+  $("winStart").min=$("winEnd").min=lo; $("winStart").max=$("winEnd").max=hi;
+  ps.value = "full";
+  applyPreset(ps.value);
+}
+function windowIndices(){
+  const c = commonForRegion(); if(!c) return null;
+  const dates = c.dates;
+  let i0 = dates.findIndex(d => d >= WIN.start); if(i0<0) i0 = 0;
+  let i1 = dates.length-1;
+  for(let i=dates.length-1;i>=0;i--){ if(dates[i] <= WIN.end){ i1=i; break; } }
+  return i1<i0 ? [i0,i0] : [i0,i1];
+}
+function sumSlice(arr,i0,i1){ let s=0; for(let i=i0;i<=i1;i++){ const v=arr[i]; if(v!=null) s+=v; } return s; }
+function windowedRows(){
+  const c = commonForRegion(), rows = baseRows();
+  const idx = c ? windowIndices() : null;
+  if(!idx){ return rows.map(r=>({...r, capture:null, regret_abs:null, regret_pct:null, w_revenue:null})); }
+  const [i0,i1] = idx, osum = sumSlice(c.oracle,i0,i1);
+  return rows.map(r=>{
+    if(!r.daily || osum<=0) return {...r, capture:null, regret_abs:null, regret_pct:null, w_revenue:null};
+    const rev = sumSlice(r.daily,i0,i1);
+    return {...r, capture:rev/osum, regret_abs:osum-rev, regret_pct:1-rev/osum, w_revenue:rev};
+  });
+}
+function updateWinNote(){
+  const c = commonForRegion(), note=$("winNote");
+  if(!c){ note.textContent = "no oracle yet — run scripts/run_common_eval.py"; return; }
+  const [i0,i1]=windowIndices();
+  const nDays = i1-i0+1, nCfg = trialsForRegion().filter(t=>t.daily).length;
+  const lo=c.dates[0], hi=c.dates[c.dates.length-1];
+  const oob = (WIN.end && WIN.end < lo) || (WIN.start && WIN.start > hi);
+  note.textContent = oob
+    ? `requested window is outside the evaluated span (${lo} … ${hi})`
+    : `${nDays} days · ${nCfg} configs · evaluated span ${lo} … ${hi}`;
+}
+$("winPreset").onchange = e => { applyPreset(e.target.value); renderWindowDependent(); };
+$("winStart").onchange = e => { WIN.start = e.target.value; $("winPreset").value=""; renderWindowDependent(); };
+$("winEnd").onchange = e => { WIN.end = e.target.value; $("winPreset").value=""; renderWindowDependent(); };
+
+/* ---- KPIs: best config by capture over the selected window ---- */
+function renderKpis(){
+  const rows = windowedRows();
+  const withCap = rows.filter(t=>t.capture!=null);
+  const el = $("kpis"); el.innerHTML = "";
+  if(!rows.length){ el.innerHTML = "<div class='kpi'><div class='l'>No configs</div></div>"; return; }
+  const best = withCap.length ? withCap.reduce((a,b)=> b.capture>a.capture ? b:a) : rows[0];
+  const kpi = (l,v,tipKey) => `<div class="kpi"><div class="v">${v}</div>`
+    + `<div class="l"${tipKey?` data-tip="${METRIC_TIPS[tipKey]}"`:""}>${l}</div></div>`;
+  const label = `${best.model} · ${EXEC_LABEL[best.executor]||best.executor}`;
+  el.innerHTML =
+    `<div class="kpi"><div class="v name">${label}</div><div class="l">Top config (by capture)</div></div>` +
+    kpi("Capture ratio", best.capture==null?"—":(best.capture*100).toFixed(1)+"%", "capture") +
+    kpi("Regret vs oracle", money(best.regret_abs), "regret_abs") +
+    kpi("Regret (%)", best.regret_pct==null?"—":(best.regret_pct*100).toFixed(1)+"%", "regret_pct") +
+    kpi("MAE skill", best.mae_skill==null?"—":(best.mae_skill*100).toFixed(1)+"%", "mae_skill") +
+    kpi("Revenue (window)", money(best.w_revenue), "total_revenue");
+}
+
+/* ---- summary table ---- */
+let sortKey="capture", sortAsc=false;
+const COLS = [
+  ["model","Model",false],["executor","Executor",false],
+  ["capture","Capture",true],["regret_abs","Regret $",true],["regret_pct","Regret %",true],
+  ["w_revenue","Revenue",true],
+  ["mae","MAE",true],["rmse","RMSE",true],["mae_skill","Skill",true],
+  ["sharpe_ratio","Sharpe",true],["peak_drawdown","Drawdown",true],
+];
+const HEAD_TIP = {executor:METRIC_TIPS.executor, w_revenue:METRIC_TIPS.total_revenue};
+const pct = v => v==null ? "—" : (v*100).toFixed(1)+"%";
+function renderSummary(){
+  const rows = windowedRows().sort((a,b)=>{
+    const x=a[sortKey], y=b[sortKey];
+    if(x==null) return 1; if(y==null) return -1;
+    return sortAsc ? (x>y?1:-1) : (x<y?1:-1);
+  });
+  let h = "<thead><tr>";
+  for(const [k,label] of COLS){
+    const cls = k===sortKey ? "sorted "+(sortAsc?"asc":"") : "";
+    const t = METRIC_TIPS[k] || HEAD_TIP[k];
+    h += `<th class="${cls}" data-k="${k}"${t?` data-tip="${t}"`:""}>${label}</th>`;
+  }
+  h += "</tr></thead><tbody>";
+  for(const r of rows){
+    h += `<tr data-name="${r.name}" class="linkrow">`
+      + `<td class="model" data-tip="${modelTip(r.model)}">${r.model}</td>`
+      + `<td class="model" data-tip="${executorTip(r.executor)}">${EXEC_LABEL[r.executor]||r.executor}</td>`
+      + `<td>${pct(r.capture)}</td>`
+      + `<td>${money(r.regret_abs)}</td>`
+      + `<td>${pct(r.regret_pct)}</td>`
+      + `<td>${money(r.w_revenue)}</td>`
+      + `<td>${fmt(r.mae)}</td><td>${fmt(r.rmse)}</td>`
+      + `<td class="${r.mae_skill>0?"pos":r.mae_skill<0?"neg":""}">${pct(r.mae_skill)}</td>`
+      + `<td>${fmt(r.sharpe_ratio)}</td><td>${money(r.peak_drawdown)}</td>`
+      + "</tr>";
+  }
+  $("summary").innerHTML = h + "</tbody>";
+  $("summary").querySelectorAll("th").forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    if(k===sortKey) sortAsc=!sortAsc; else { sortKey=k; sortAsc=false; }
+    renderSummary();
+  });
+  markFocused();
+}
+// Click any table row → snap every per-trial plot below to that config/model.
+function linkTo(name){
+  const t = T.find(x => x.name === name && x.region === region());
+  if(!t) return;
+  FOCUS = name; FOCUS_MODEL = t.model;
+  const setIf = (id, val) => { const s = $(id);
+    if(s && [...s.options].some(o => o.value === val)){ s.value = val; return true; } return false; };
+  setIf("fanSel", name); setIf("drSel", name); setIf("anSel", name);
+  setIf("rawSel", t.model);
+  const q = qfanTrials().find(x => x.model === t.model);   // quantile fan, if any
+  const hasQ = q && setIf("qfanSel", q.name);
+  // Make sure the focused config is actually shown in the equity multiselect,
+  // so "focus" visibly highlights it there too rather than silently missing.
+  const eqOpt = [...$("eqSel").options].find(o => o.value === name);
+  if(eqOpt) eqOpt.selected = true;
+  // Every ◉ focused-model surface reacts to the same click — per-config plots
+  // snap, and the multi-series charts (equity, selection) highlight the pick.
+  renderRawExec(); renderFanOrigins(); renderRev(); renderAnalytics();
+  if(hasQ) renderQFanDays();
+  renderEquity(); renderSelection(); markFocused();
+  $("equityChart").closest("section").scrollIntoView({behavior:"smooth", block:"start"});
+}
+// Spec table / matrix rows carry only a model — link via a representative trial.
+function linkToModel(model){
+  const t = baseRows().find(x => x.model === model)
+    || T.find(x => x.model === model && x.region === region());
+  if(t) linkTo(t.name);
+}
+
+/* ---- equity: configs vs the single perfect-foresight oracle, window shaded ---- */
+const cfgOf = name => T.find(x=>x.name===name && x.region===region());
+function configLabel(name){ const t=cfgOf(name); return t ? `${t.model} · ${EXEC_LABEL[t.executor]||t.executor}` : name; }
+function renderEquity(){
+  const chosen = [...$("eqSel").selectedOptions].map(o=>o.value);
+  const traces = [];
+  for(const n of chosen){
+    const b = D[key(n)]; if(!b || !b.daily) continue;
+    const isFocus = FOCUS && n === FOCUS;      // focused config drawn bold, others dim
+    traces.push({x:b.daily.dates, y:b.daily.equity, name:configLabel(n), type:"scatter",
+      mode:"lines", yaxis:"y",
+      opacity: (FOCUS && !isFocus) ? 0.3 : 1,
+      line:{width: isFocus ? 3 : 1.6},
+      hovertemplate:"%{fullData.name}<br>%{x}<br><b>$%{y:,.0f}</b><extra></extra>"});
+  }
+  const c = commonForRegion();
+  const hasPrice = !!(c && c.price_max);
+  if(c){
+    let cum=0; const ocum = c.oracle.map(v => (cum += (v||0)));
+    traces.push({x:c.dates, y:ocum, name:"Oracle (perfect foresight)", type:"scatter",
+      mode:"lines", yaxis:"y",
+      line:{color:cssv("--muted"), width:1.4, dash:"dash"},
+      hovertemplate:"Perfect foresight<br>%{x}<br><b>$%{y:,.0f}</b><extra></extra>"});
+    if(hasPrice){                              // lower panel: actual daily peak price
+      traces.push({x:c.dates, y:c.price_max, name:"Daily peak price", type:"scatter",
+        mode:"lines", yaxis:"y2", line:{color:"#d62728", width:0.8}, fill:"tozeroy",
+        fillcolor:"rgba(214,39,40,0.16)",
+        hovertemplate:"%{x}<br>peak <b>$%{y:,.0f}</b>/MWh<extra></extra>"});
+    }
+  }
+  // Shaded band = selected test window, spanning both panels.
+  const shapes = (c && WIN.start && WIN.end) ? [{
+    type:"rect", xref:"x", yref:"paper", x0:WIN.start, x1:WIN.end, y0:0, y1:1,
+    fillcolor:cssv("--accent"), opacity:0.08, line:{width:0}, layer:"below",
+  }] : [];
+  const layout = Object.assign({
+    hovermode:"x unified", shapes,
+    xaxis:{title:"Date", gridcolor:cssv("--grid"), anchor: hasPrice ? "y2" : "y"},
+    yaxis:{title:"Cumulative revenue ($)", gridcolor:cssv("--grid"), tickformat:"$,.2s",
+      domain: hasPrice ? [0.26, 1] : [0, 1]},
+  }, RIGHT_LEGEND);
+  if(hasPrice){
+    layout.yaxis2 = {title:{text:"peak $/MWh"}, gridcolor:cssv("--grid"),
+      domain:[0, 0.18], tickformat:"$,.0s"};
+  }
+  Plotly.react("equityChart", traces, baseLayout(layout), CFG);
+}
+
+/* ---- forecast vs actual: one model, every execution pattern ---- */
+// The recorded forecast is the model's POINT forecast, which is dispatch-mode
+// independent — robust/EV/CVaR/mean-CVaR all read the same forecast and differ
+// only in how they dispatch it. So the only thing that changes the forecast line
+// is the RE-FORECAST CADENCE. We therefore de-duplicate identical forecast series
+// into one line (labelled with the executors that share it), so every visible
+// line is a genuinely distinct forecast, not a phantom legend entry.
+const EXEC_RAW_ORDER = {openloop:0, point_ol:0, point:1, mpc30:2, mpc5:2,
+  mpc_spike:3, mpc_spikegate:3};
+// Cycled so executors that share an identical forecast (e.g. point OL and
+// spike-gated MPC — same daily forecast, different dispatch) stay separate in the
+// legend yet remain individually visible where their lines overlap.
+const RAW_DASH = ["solid","dash","dot","dashdot","longdash","longdashdot"];
+function renderRawExec(){
+  const model = $("rawSel").value;
+  const trials = trialsForRegion().filter(t => t.model === model)
+    .sort((a,b) => (EXEC_RAW_ORDER[a.executor]??9) - (EXEC_RAW_ORDER[b.executor]??9));
+  const traces = []; let x0 = null, fi = 0;
+  for(const t of trials){
+    const b = D[key(t.name)];
+    if(!b || !b.recent) continue;
+    const x = recentX(b.recent);
+    if(!x0){                                          // one shared Actual line
+      x0 = x;
+      traces.push({x, y:priceY(b.recent.actual), customdata:b.recent.actual, name:"Actual",
+        type:"scatter", mode:"lines", line:{color:cssv("--actual"), width:1.8},
+        hovertemplate:"Actual <b>$%{customdata:,.0f}</b>/MWh<extra></extra>"});
+    }
+    const lbl = EXEC_LABEL[t.executor] || t.executor;
+    traces.push({x, y:priceY(b.recent.forecast), customdata:b.recent.forecast, name:lbl,
+      type:"scatter", mode:"lines", line:{width:1.4, dash:RAW_DASH[fi % RAW_DASH.length]},
+      hovertemplate:`${lbl} forecast <b>$%{customdata:,.0f}</b>/MWh<extra></extra>`});
+    fi++;
+  }
+  if(!x0){ Plotly.react("rawChart", [], baseLayout()); return; }
+  const viewStart = new Date(x0[x0.length-1].getTime() - META.view_days*86400000);
+  Plotly.react("rawChart", traces, baseLayout(Object.assign({
+    hovermode:"x unified", yaxis:priceYAxis(),
+    xaxis:{title:"Time", gridcolor:cssv("--grid"), range:[viewStart, x0[x0.length-1]],
+      rangeslider:{visible:true, thickness:0.08}},
+  }, RIGHT_LEGEND)), CFG);
+}
+$("rawSel").onchange = renderRawExec;
+
+/* ---- forecast fan ---- */
+function renderFanOrigins(){
+  const b = D[key($("fanSel").value)];
+  const origins = (b && b.fans) ? b.fans.map(f=>f.origin) : [];
+  // Hide the whole section for configs with no committed day-ahead trajectory
+  // (interval-by-interval MPC, or trials with no saved forecasts).
+  $("fanSection").style.display = origins.length ? "" : "none";
+  optionList($("fanOrigin"), origins, true);
+  renderFan();
+}
+function renderFan(){
+  const b = D[key($("fanSel").value)];
+  const o = $("fanOrigin").value;
+  const fan = b && b.fans ? b.fans.find(f=>f.origin===o) : null;
+  if(!fan){ Plotly.react("fanChart", [], baseLayout()); return; }
+  const steps = fan.forecast.map((_,i)=>i);
+  const traces = [
+    {x:steps, y:priceY(fan.actual), customdata:fan.actual, name:"Actual", type:"scatter", mode:"lines",
+      line:{color:cssv("--actual"), width:1.6},
+      hovertemplate:"Step %{x}<br>Actual <b>$%{customdata:,.0f}</b>/MWh<extra></extra>"},
+    {x:steps, y:priceY(fan.forecast), customdata:fan.forecast, name:"Forecast", type:"scatter", mode:"lines",
+      line:{color:cssv("--forecast"), width:1.6, dash:"dot"},
+      hovertemplate:"Step %{x}<br>Forecast <b>$%{customdata:,.0f}</b>/MWh<extra></extra>"},
+  ];
+  Plotly.react("fanChart", traces,
+    baseLayout({hovermode:"x unified",
+                xaxis:{title:"Steps ahead (30-min each — 48 = day-ahead)",gridcolor:cssv("--grid")},
+                yaxis:priceYAxis()}), CFG);
+}
+
+/* ---- quantile forecast fan (probabilistic models) ---- */
+function qfanTrials(){ return baseRows().filter(t => { const b=D[key(t.name)]; return b && b.qfan; }); }
+function renderQFanDays(){
+  const b = D[key($("qfanSel").value)];
+  optionList($("qfanDay"), (b && b.qfan) ? b.qfan.map(f=>f.date) : [], true);
+  renderQFan();
+}
+function renderQFan(){
+  const b = D[key($("qfanSel").value)];
+  const f = (b && b.qfan) ? b.qfan.find(x=>x.date===$("qfanDay").value) : null;
+  if(!f){ Plotly.react("qfanChart", [], baseLayout()); return; }
+  const n = f.actual.length, x = Array.from({length:n},(_,i)=>i*0.5);   // 30-min steps → hours
+  const qk = Object.keys(f).filter(k=>/^q\d+$/.test(k)).sort((a,b)=>(+a.slice(1))-(+b.slice(1)));
+  const med = qk.includes("q50") ? "q50" : qk[Math.floor(qk.length/2)];
+  // Nested bands between consecutive quantiles, graduated so the central bands
+  // read darker than the tails — more colour resolution from the same 4 levels.
+  const traces = [{x, y:priceY(f[qk[0]]), mode:"lines", line:{width:0},
+    showlegend:false, hoverinfo:"skip"}];
+  for(let i=1;i<qk.length;i++){
+    const lo=+qk[i-1].slice(1), hi=+qk[i].slice(1);
+    const tail = Math.min(Math.abs(lo-50), Math.abs(hi-50)) / 50;    // 0 near median → 1 at tail
+    const op = (0.34 - 0.22*tail).toFixed(2);
+    traces.push({x, y:priceY(f[qk[i]]), mode:"lines", line:{width:0}, fill:"tonexty",
+      fillcolor:`rgba(80,150,255,${op})`, name:`${lo}–${hi}%`,
+      hovertemplate:`${lo}–${hi}%: <b>$%{y:,.0f}</b><extra></extra>`});
+  }
+  traces.push({x, y:priceY(f[med]), customdata:f[med], mode:"lines", name:"median forecast",
+    line:{color:cssv("--forecast"), width:1.7},
+    hovertemplate:"median <b>$%{customdata:,.0f}</b>/MWh<extra></extra>"});
+  traces.push({x, y:priceY(f.actual), customdata:f.actual, mode:"lines", name:"actual",
+    line:{color:cssv("--actual"), width:1.6},
+    hovertemplate:"actual <b>$%{customdata:,.0f}</b>/MWh<extra></extra>"});
+  Plotly.react("qfanChart", traces, baseLayout(Object.assign({hovermode:"x unified",
+    xaxis:{title:"hours ahead (day-ahead horizon)", gridcolor:cssv("--grid")},
+    yaxis:priceYAxis()}, RIGHT_LEGEND)), CFG);
+}
+
+/* ---- daily revenue ---- */
+function renderRev(){
+  const b = D[key($("drSel").value)];
+  if(!b || !b.daily){ Plotly.react("revChart", [], baseLayout()); return; }
+  const colors = b.daily.revenue.map(v => v>=0 ? cssv("--pos") : cssv("--neg"));
+  Plotly.react("revChart",
+    [{x:b.daily.dates, y:b.daily.revenue, type:"bar", marker:{color:colors}, name:"Daily $",
+      hovertemplate:"%{x}<br><b>$%{y:,.0f}</b><extra></extra>"}],
+    baseLayout({showlegend:false, xaxis:{title:"Date",gridcolor:cssv("--grid")},
+      yaxis:{title:"Revenue ($/day)",gridcolor:cssv("--grid")}}), CFG);
+}
+
+/* ---- deep analytics ---- */
+function renderAnalytics(){
+  const b = D[key($("anSel").value)], a = b && b.analytics;
+  if(!a){
+    Plotly.react("errChart", [], baseLayout());
+    Plotly.react("rbhChart", [], baseLayout());
+    $("dispKpis").innerHTML = ""; $("worstTbl").innerHTML = ""; return;
+  }
+  Plotly.react("errChart", [
+    {x:a.error_by_hour.hour, y:a.error_by_hour.mae, name:"MAE", type:"bar", marker:{color:cssv("--forecast")},
+      hovertemplate:"Hour %{x}<br>MAE <b>$%{y:,.1f}</b>/MWh<extra></extra>"},
+    {x:a.error_by_hour.hour, y:a.error_by_hour.bias, name:"Bias", type:"bar", marker:{color:cssv("--muted")},
+      hovertemplate:"Hour %{x}<br>Bias <b>$%{y:,.1f}</b>/MWh<extra></extra>"},
+  ], baseLayout({barmode:"group", hovermode:"x unified",
+     xaxis:{title:"Hour of day",gridcolor:cssv("--grid")},
+     yaxis:{title:"Forecast error ($/MWh)",gridcolor:cssv("--grid")}}), CFG);
+
+  Plotly.react("rbhChart", [
+    {x:a.revenue_by_hour.hour, y:a.revenue_by_hour.total_revenue, type:"bar",
+      marker:{color:cssv("--pos")}, hovertemplate:"Hour %{x}<br><b>$%{y:,.0f}</b><extra></extra>"},
+  ], baseLayout({showlegend:false, xaxis:{title:"Hour of day",gridcolor:cssv("--grid")},
+     yaxis:{title:"Total revenue ($)",gridcolor:cssv("--grid")}}), CFG);
+
+  const e = a.dispatch_efficiency;
+  const kpi = (l,v,tip) => `<div class="kpi"><div class="v">${v}</div>`
+    + `<div class="l"${tip?` data-tip="${tip}"`:""}>${l}</div></div>`;
+  $("dispKpis").innerHTML =
+    kpi("Avg charge $", "$"+fmt(e.avg_charge_price),
+      "Volume-weighted average price paid while charging. Lower is better.") +
+    kpi("Avg discharge $", "$"+fmt(e.avg_discharge_price),
+      "Volume-weighted average price received while discharging. Higher is better.") +
+    kpi("Spread $", "$"+fmt(e.price_spread),
+      "Discharge price − charge price: the arbitrage margin actually captured per MWh.") +
+    kpi("MWh charged", fmt(e.total_mwh_charged,0)) +
+    kpi("MWh discharged", fmt(e.total_mwh_discharged,0)) +
+    kpi("Approx cycles", fmt(e.approx_cycles,0),
+      "Full-battery equivalent cycles over the window (throughput ÷ capacity).") +
+    kpi("Revenue / cycle", "$"+fmt(e.revenue_per_cycle),
+      "Revenue earned per equivalent full cycle.");
+
+  let h = "<thead><tr><th>Date</th><th>Revenue</th><th>MAE</th><th>Max $</th><th>Min $</th></tr></thead><tbody>";
+  for(const r of a.worst_revenue){
+    h += `<tr><td>${r.date}</td><td class="${r.revenue<0?"neg":""}">${money(r.revenue)}</td>`
+      + `<td>${fmt(r.mae)}</td><td>${money(r.max_price)}</td><td>${money(r.min_price)}</td></tr>`;
+  }
+  $("worstTbl").innerHTML = h + "</tbody>";
+}
+$("anTabs").querySelectorAll(".tab").forEach(tab => tab.onclick = () => {
+  $("anTabs").querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".tabpane").forEach(p=>p.classList.remove("active"));
+  tab.classList.add("active"); $(tab.dataset.pane).classList.add("active");
+  Plotly.Plots.resize("errChart"); Plotly.Plots.resize("rbhChart");
+});
+
+/* ---- wiring ---- */
+function repopulate(){
+  // Every per-trial selector respects the ★ Key-models filter (baseRows).
+  const names = baseRows().map(t=>t.name).sort();
+  optionList($("fanSel"), names, true);
+  optionList($("drSel"), names, true);
+  optionList($("anSel"), names, true);
+  // quantile fan is a per-model property — one dropdown entry per model
+  // (value = a representative trial name, label = the model).
+  const qByModel = {};
+  for(const t of qfanTrials()) if(!qByModel[t.model]) qByModel[t.model] = t.name;
+  const qentries = Object.entries(qByModel).sort((a,b)=>a[0].localeCompare(b[0]));
+  const prevQ = $("qfanSel").value;
+  $("qfanSel").innerHTML = "";
+  for(const [m, nm] of qentries){
+    const o = document.createElement("option"); o.value = nm; o.textContent = m;
+    $("qfanSel").appendChild(o);
+  }
+  if([...$("qfanSel").options].some(o=>o.value===prevQ)) $("qfanSel").value = prevQ;
+  $("qfanSection").style.display = qentries.length ? "" : "none";
+  // forecast-vs-actual: models (key-filtered) that have a recent block. Default
+  // to autoregression when present — the clearest raw/executed contrast.
+  const recentModels = [...new Set(baseRows()
+    .filter(t => { const b = D[key(t.name)]; return b && b.recent; })
+    .map(t => t.model))].sort();
+  optionList($("rawSel"), recentModels, true);
+  if(recentModels.includes("autoregression")) $("rawSel").value = "autoregression";
+  // equity multiselect: the comparison set (curated when ★ Key models is on)
+  $("eqSel").innerHTML = "";
+  const eqNames = baseRows().map(t=>t.name).sort();
+  for(const n of eqNames){
+    const o=document.createElement("option");
+    o.value=n; o.textContent=configLabel(n); o.selected=true;
+    $("eqSel").appendChild(o);
+  }
+}
+// Cheap re-renders when only the test window changed.
+function renderWindowDependent(){ renderKpis(); renderSummary(); renderMatrix(); renderSelection(); renderEquity(); updateWinNote(); }
+function renderAll(){
+  renderSpecTable();          // region-dependent, window-independent
+  renderWindowDependent();
+  renderRawExec(); renderFanOrigins(); renderQFanDays(); renderRev(); renderAnalytics();
+}
+// Theme change: re-render only the Plotly charts (they bake colours), each
+// isolated so a single empty/failed chart can't leave the rest on stale colours.
+function restyleCharts(){
+  [renderEquity, renderSelection, renderRawExec, renderFan, renderQFan, renderRev, renderAnalytics]
+    .forEach(fn => { try { fn(); } catch(e){ /* keep the other charts updating */ } });
+}
+$("regionSel").onchange = () => { setupWindow(); repopulate(); renderAll(); };
+$("eqSel").onchange = renderEquity;
+$("fanSel").onchange = renderFanOrigins;
+$("fanOrigin").onchange = renderFan;
+$("qfanSel").onchange = renderQFanDays;
+$("qfanDay").onchange = renderQFan;
+$("drSel").onchange = renderRev;
+$("anSel").onchange = renderAnalytics;
+// Click any table (summary / model configs / capture matrix) to focus the plots.
+// Delegated so the listeners survive re-renders. Clicking anywhere in a row links.
+$("summary").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-name]"); if(tr) linkTo(tr.dataset.name);
+});
+$("specTbl").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-model]"); if(tr) linkToModel(tr.dataset.model);
+});
+$("matrix").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-model]"); if(tr) linkToModel(tr.dataset.model);
+});
+
+setupWindow();
+repopulate();
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grian"
+version = "0.1.0"
+description = "NEM electricity price forecasting: a hands-on curriculum"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26,<3",
+    "pandas>=2.1,<3",
+    "pyarrow>=14,<19",
+    "matplotlib>=3.8,<4",
+    "pyyaml>=6.0,<7",
+    "nemosis>=3.2,<4",
+    "pvlib>=0.11,<1",
+    "cdsapi>=0.7,<1",
+    "xarray>=2024.1",
+    "netcdf4>=1.6",
+    "scikit-learn>=1.4,<2",
+    "lightgbm>=4.2,<5",
+    "statsmodels>=0.14,<1",
+    "torch>=2.2,<3",
+    "cvxpy>=1.4,<2",
+    "geopandas>=1.0,<2",
+    "shapely>=2.0,<3",
+]
+
+[project.optional-dependencies]
+nemseer = ["nemseer>=0.6"]
+dashboard = ["plotly>=5.20,<7"]
+dev = [
+    "pytest>=8.0,<9",
+    "ruff>=0.4,<1",
+    "pre-commit>=3.6,<4",
+    "jupyter>=1.0,<2",
+    "ipykernel>=6.29,<7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/grian"]
+artifacts = ["src/grian/sim/assets/*.html"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "UP",   # pyupgrade
+]
+ignore = [
+    "D100",  # module docstring (we use __init__ for package docs)
+    "D104",  # missing docstring in public package
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test files: docstrings not required, and long assert lines are acceptable.
+"tests/*" = ["D", "E501"]
+# Teaching notebooks: exploratory style — allow long lines, undocumented
+# functions, and throwaway locals.
+"notebooks/*" = ["D", "E", "F841"]
+# Figure-generation and build scripts for the learning-guide PDFs: not shipped
+# library code, so long plotting lines and throwaway locals are expected.
+"docs/learning_guides/*" = ["D", "E501", "F841"]
+# Archived one-off campaign scripts, kept for provenance and not maintained.
+"scripts/archive/*" = ["D", "E501", "F841"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,57 @@
+# Raw caches: large (~3 GB) and re-fetchable from AEMO/ERA5 — never committed.
+data/raw/
+# Processed parquet (the small, static working data) IS committed so the repo
+# runs cold — but keep local backups and any 5-min-scale extras out.
+data/processed/*.bak*
+notebooks/data/
+notebooks/outputs/
+
+# Outputs (regenerable)
+outputs/figures/*.png
+outputs/figures/*.pdf
+outputs/models/
+outputs/reports/*.html
+outputs/jobs/
+outputs/trials_validate2023/
+outputs/_archive_valtest_trials/
+outputs/_archive_2026_monthly/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environments
+.venv/
+.conda/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ERA5 credentials (user-specific)
+.cdsapirc
+outputs/trials/
+outputs/trials_30min/
+outputs/trials_5min/
+outputs/testbed/
+.claude/
+outputs/plans/round2_val.log
+outputs/plans/*.log

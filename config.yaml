@@ -1,0 +1,37 @@
+# grian — NEM price forecasting configuration
+# This file is the single source of run parameters.
+
+region: SA1
+
+# Date windows
+train_start: "2020-01-01"
+train_end: "2023-06-30"
+test_start: "2023-07-01"
+test_end: "2024-06-30"
+
+# Paths (relative to repo root)
+paths:
+  raw: data/raw
+  processed: data/processed
+  figures: outputs/figures
+  models: outputs/models
+  reports: outputs/reports
+
+# Battery profile (notebook 9)
+battery:
+  power_mw: 100
+  duration_hours: 2
+  efficiency_roundtrip: 0.85
+  max_cycles_per_day: 2
+
+# Reproducibility
+seed: 42
+
+# Forecast settings
+horizon_periods: 48          # 48 × 30 min = day-ahead
+quantiles: [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
+spike_threshold_aud: 300     # $/MWh
+
+# NEMOSIS / NEMSEER cache (auto-created)
+nemosis_cache: data/raw/nemosis
+nemseer_cache: data/raw/nemseer
