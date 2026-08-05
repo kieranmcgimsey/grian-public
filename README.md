@@ -29,7 +29,6 @@ constraints, a ledger records every interval, and **capture ratio** — your rev
 
 - [Quick start](#quick-start)
 - [The simulation environment](#the-simulation-environment)
-- [The capture-ratio campaign](#the-capture-ratio-campaign)
 - [Documentation](#documentation)
 - [Running the simulation](#running-the-simulation)
 - [Repository layout](#repository-layout)
@@ -116,31 +115,6 @@ inheritance. Adding one is a dict and four functions.
 | `no_embargo` | Zero gap between train/test | Subtle autocorrelation leak |
 
 </details>
-
----
-
-## The capture-ratio campaign
-
-The effort to dispatch the battery above 50% of oracle revenue — and the honest
-record of how it actually went. Every bug, dead end, and finding is written up in
-the [experiment log](outputs/experiment_log.md) (Entries 001–038).
-
-**The four things that mattered, in order:**
-
-1. The LP had `dt` hardcoded to 30 min on 5-min data — every earlier revenue figure
-   was physically fictional.
-2. Models were forecasting from week-stale, embargoed data.
-3. MPC converts a forecaster's short-lead skill into ~15–20 capture points — but
-   only if the forecaster *has* short-lead skill.
-4. The winning lever is the **dispatch objective**, not the forecast: a $3000 spike
-   gate that reacts to observed scarcity the day-ahead forecast can't call.
-
-Evaluation runs on a **single common held-out year at 30-minute resolution**, scored
-by **balanced (per-month) capture**, with a 16-cell model × dispatch ablation.
-**Champion:** `lightgbm_qmean_weather_fourier` under **spike-gated MPC**, ≈ 0.55
-balanced / 0.585 pooled; a probabilistic quantile-LEAR (`lear_qmean_torch`) fills the
-linear tier. The always-current state lives in the
-[dashboard](https://kieranmcgimsey.github.io/grian-public/).
 
 ---
 
