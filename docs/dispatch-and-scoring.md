@@ -149,9 +149,8 @@ rep = capture_report(ledger_df, oracle_daily)
 
 ## The trap register (the ways to void your results)
 
-These are the failure modes that already bit this repo. The full list (T1–T11)
-is in the [plan](../outputs/plans/capture_campaign.md#7-trap-register); the ones
-that live in this layer:
+These are the failure modes that already bit this repo — the ones that live in
+this layer:
 
 ### Trap 1: the dt bug
 

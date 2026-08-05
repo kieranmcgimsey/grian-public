@@ -1,11 +1,11 @@
-"""Receding-horizon MPC executor (campaign plan Phase 1, W1.2).
+"""Receding-horizon MPC executor.
 
 Replaces the open-loop one-LP-per-day execution with a rolling loop:
 every ``resolve_every`` intervals the LP is re-solved from the true
 state of charge, and every ``reforecast_every`` intervals the forecast
 is regenerated from all data observed so far. This converts the
 forecaster's short-lead skill — much higher than its midnight skill —
-into dispatch decisions (plan §3.3).
+into dispatch decisions.
 
 Cycle limits are enforced per calendar day both inside the LP (the
 first partial day gets the *remaining* budget, later days a full one)
@@ -150,7 +150,7 @@ def simulate_region_mpc(
     Walks the test window interval-block by interval-block:
     1. Refit the model on all observed history (weekly, at midnight).
     2. Every ``reforecast_every`` intervals, regenerate the forecast
-       from data up to now (predict-from-now, W1.1).
+       from data up to now (predict-from-now).
     3. Every ``resolve_every`` intervals, re-solve the LP from the true
        SOC and remaining cycle budget.
     4. Execute the block with feasibility clamping and log it.
@@ -324,7 +324,7 @@ def simulate_region_mpc(
         shift = pos - forecast_origin
         plan_prices = forecast_dollars[shift:]
 
-        # Persistence blend (W1.4): pull the first steps of the plan
+        # Persistence blend: pull the first steps of the plan
         # toward the last observed price with exponentially decaying
         # weight. On spike days the model's mean-reverting forecast
         # lags the event by up to reforecast_every intervals; the last

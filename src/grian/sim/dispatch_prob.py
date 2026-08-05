@@ -2,7 +2,7 @@
 
 The deterministic LP takes a single price vector. To make it uncertainty-aware
 without changing the LP, we feed it a **direction-pessimistic** price vector built
-from the forecast fan (see docs/probabilistic-dispatch-explained.md):
+from the forecast fan:
 
 * steps that look like a **sell** (price above the horizon median) get a **low**
   quantile — don't bank on the upside;

@@ -228,9 +228,10 @@ net_mw, revenue, interval_minutes`.
 2. AEMO interval-shift applied once at ingest (interval-ending → beginning).
 3. Weather is forward-filled from hourly (never back-filled) and used at
    origin-time only.
-4. The rolling-origin backtest trains only on history up to each trading day and
+4. The walk-forward loop trains only on history up to each trading day and
    trades the *next* day (the common-window eval uses `embargo=0` for
-   deployment realism — safe because train and trade windows never overlap; the
-   backtest module also supports a horizon-length embargo). Integration tests
-   (`test_no_future_leakage`, `test_leakage_improves_mae`) prove that injecting a
-   future value changes the score — the guard against silent leakage.
+   deployment realism — safe because train and trade windows never overlap; an
+   embargo the length of the horizon is available for model-selection backtests).
+   Integration tests (`test_no_future_leakage`, `test_leakage_improves_mae`) prove
+   that injecting a future value changes the score — the guard against silent
+   leakage.

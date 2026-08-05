@@ -1,6 +1,6 @@
 """Perfect-foresight oracle for capture ratio.
 
-The oracle is the campaign's frozen denominator (plan §1.3): a single
+The oracle is the frozen denominator: a single
 LP over the full evaluation window against actual prices, with SOC
 continuous across days, soc0 = 0, correct dt, and a per-calendar-day
 discharge-throughput constraint enforcing the cycle limit.
@@ -46,7 +46,7 @@ def compute_oracle(
             superlinearly in HiGHS (~20 s for 7 days, ~3 min for 21);
             weekly blocks keep the oracle tractable and cost almost
             nothing — overnight carry across a midnight boundary is
-            worth ~0 under a per-day cycle limit (plan §1.3 fallback).
+            worth ~0 under a per-day cycle limit.
         cache_path: If given, load from / save to this parquet path.
             A sidecar ``.meta.json`` stores the battery spec; a spec
             mismatch invalidates the cache.
@@ -154,7 +154,7 @@ def _package(schedule_df: pd.DataFrame) -> dict:
 def _assert_closed_cycles_nonnegative(
     schedule_df: pd.DataFrame, tol: float = 1.0
 ) -> None:
-    """Assert the oracle never loses money over any closed cycle (trap T7).
+    """Assert the oracle never loses money over any closed cycle.
 
     Perfect foresight cannot lose money over a cycle that starts and ends
     empty: doing nothing earns exactly zero, so the optimum is >= 0. The

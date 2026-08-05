@@ -100,13 +100,13 @@ MODELS = {
                                       "include_weather": True,
                                       "calendar_encoding": "fourier"},
     # Spike-precursor features on — the anticipating forecast to beat the
-    # baseline (Entry 030 / HANDOFF §0).
+    # baseline (Entry 030).
     "lightgbm_rich_scarcity": {"n_estimators": 300, "learning_rate": 0.05,
                                "include_scarcity": True},
     # Decision-focused training: scarcity features + a fit that up-weights
     # high-price intervals (magnitude scheme), so the model is scored where
     # capture is earned. The direct attack on the accuracy-vs-value gap
-    # (HANDOFF §0 step 2).
+    #.
     "lightgbm_rich_dfl": {"n_estimators": 300, "learning_rate": 0.05,
                           "include_scarcity": True,
                           "sample_weighting": {"scheme": "magnitude",

@@ -9,16 +9,22 @@ This is the hot-path replacement for the cvxpy model in
 ``grian.dispatch.schedule``. It writes the same problem out with explicit
 state-of-charge (SOC — the energy currently stored, in MWh) variables and
 *sparse* constraint matrices, solved by the HiGHS solver via
-``scipy.optimize.linprog``. Sparse means we only store the non-zero constraint
+``scipy.optimize.linprog``. This hand-written sparse formulation was chosen over
+the readable cvxpy reference (``grian.dispatch.schedule``): it is **~10–50× faster**
+and, unlike cvxpy, scales to the full-window oracle, while remaining provably
+equivalent — ``tests/test_sim_lp.py`` checks the two produce the same optimum at
+both resolutions. Sparse means we only store the non-zero constraint
 coefficients, which is what lets the same formulation scale from a single
 trading day (n_steps = 288 at 5-min resolution) up to the full-window oracle
 (n_steps ≈ 35,000) without building a dense matrix that would not fit in memory.
 
 All energy accounting uses a caller-supplied ``dt_hours`` (the interval length
-in hours) — never a hardcoded interval length. Hardcoding it is trap T1 in the
-campaign plan: it silently multiplied revenue by the wrong factor and voided a
-dozen early results.
+in hours) — never a hardcoded interval length. Hardcoding it once silently
+multiplied revenue by the wrong factor and voided a dozen early results
+(experiment log, Entry 013).
 """
+
+from collections.abc import Sequence
 
 import numpy as np
 from scipy import sparse
@@ -34,7 +40,7 @@ def solve_lp(
     efficiency: float = 0.85,
     soc0: float = 0.0,
     terminal_soc: float | None = None,
-    throughput_budgets: list[tuple[int, int, float]] | None = None,
+    throughput_budgets: Sequence[tuple[int, int, float]] | None = None,
 ) -> dict:
     """Solve the battery arbitrage LP with HiGHS.
 
@@ -191,7 +197,7 @@ def solve_mean_cvar_lp(
     efficiency: float = 0.85,
     soc0: float = 0.0,
     terminal_soc: float | None = None,
-    throughput_budgets: list[tuple[int, int, float]] | None = None,
+    throughput_budgets: Sequence[tuple[int, int, float]] | None = None,
 ) -> dict:
     """Mean-CVaR battery dispatch across price scenarios (one here-and-now plan).
 
@@ -380,7 +386,7 @@ def clamp_action(
     what is actually possible: discharge is limited by the energy in store and
     by the remaining daily throughput budget; charge is then limited by the
     headroom left after the (already clamped) discharge. Revenue must only ever
-    be computed from these clamped values — that is trap T2.
+    be computed from these clamped values.
 
     Args:
         charge_mw: Planned charging power (MW).

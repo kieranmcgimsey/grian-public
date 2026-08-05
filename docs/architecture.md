@@ -9,8 +9,7 @@ what it is responsible for and what it must not do.
 The sim is deliberately **underengineered**: plain functions, plain dicts, no
 classes, no inheritance, no framework. A model is a dict of four functions. A
 config is a dict. A ledger is a list of dicts. State is passed explicitly, never
-hidden in objects. This is a teaching test bench — readability and
-reproducibility beat cleverness every time. When you extend it, match that
+hidden in objects. Readability and reproducibility beat cleverness every time. When you extend it, match that
 style (see [extending.md](extending.md)).
 
 Everything is written to disk under `outputs/trials/<trial_name>/<region>/`, and
@@ -36,10 +35,10 @@ SHA that produced it).
 | `search.py` | Pluggable hyperparameter search strategies | `run_search`, `bayesian_strategy` |
 | `dashboard.py` | Static HTML dashboard builder over the saved artifacts | `build_dashboard` (run `scripts/build_dashboard.py`) |
 
-The core library `src/grian/` (one level up) holds the notebook-facing code:
-`dispatch.py` (the readable cvxpy reference LP — `lp.py` is its fast twin),
-`data.py`, `backtest.py`, `metrics.py`, `viz.py`, and `models/` (the notebook
-models, distinct from the sim registry).
+The core library `src/grian/` (one level up) holds shared utilities: `config.py`,
+`data.py` (NEM/ERA5 loading), `viz.py` (plot style), `dispatch.py` (the readable
+cvxpy reference LP that `lp.py`'s fast twin is tested against), and
+`models/conformal.py` (the conformal wrapper the quantile models use).
 
 ## The two executors
 

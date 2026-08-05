@@ -1,71 +1,77 @@
 # Running experiments
 
-A task-oriented walkthrough. Every command here is runnable from the repo root.
-Assumes you have installed the package (`pip install -e ".[dev]"`) and that the
-processed dataset `data/processed/SA1_5min_sim.parquet` exists (the campaign
-scripts read it directly; `scripts/run_baselines.py` builds it on first run).
+A task-oriented walkthrough. Every command runs from the repo root; assumes
+`pip install -e ".[dev]"` and the processed dataset
+`data/processed/SA1_30min_sim.parquet` (build it with `scripts/build_sim_data.py`).
+The active entry points are listed in [`scripts/README.md`](../scripts/README.md).
 
-## The two windows
+## The common window
 
-Every capture-ratio result is reported on one of two fixed windows. **This
-separation is load-bearing — respect it or your numbers are not trustworthy.**
+Every capture-ratio result is scored on **one identical held-out window** so the
+numbers are directly comparable: **2025-07-01 → 2026-06-30** (the most recent 12
+months), at **30-minute** resolution, against a single cached perfect-foresight
+oracle. Walk-forward: for each day, train on the trailing ~548 days (18 months),
+refit every 28 days, trade the next day.
 
-| Window | Dates | Purpose |
-|---|---|---|
-| **validation** | 2023-07-01 → 2023-09-30 (92 days) | Tune everything here. Model selection, hyperparameters, executor knobs. Run as often as you like. |
-| **test** (held out) | 2023-10-01 → 2024-01-30 (122 days) | Touch **once per accepted technique**, for the headline number. |
+**Why one window, and why balanced capture.** Battery revenue is
+spike-concentrated — the top ~10 days are ~45% of the year's oracle revenue — so a
+single *pooled* ratio is dominated by a couple of mega-spike days and overfits
+fast. Rank models on **balanced** capture (the mean of the 12 per-month ratios),
+report pooled alongside, and confirm anything that looks like a win on
+regime-contrasting **sub-windows** (a spiky month, a calm month) before believing
+it. A knob whose edge doesn't survive a fresh sub-window is a fit, not a result.
 
-Why so strict: battery revenue is spike-concentrated — on validation the top 10
-of 92 days carry 52% of the oracle's revenue. A metric resting on ~10 days
-overfits to those specific days fast, so repeated peeking at test silently
-inflates your result. The campaign scripts encode both windows; you select with
-a `val`/`test` argument.
-
-## Recipe 1 — reproduce the honest baselines
-
-```bash
-python scripts/run_capture_baselines.py
-```
-
-This computes (and caches) the perfect-foresight oracle for both windows, runs
-the open-loop baselines (`naive`, `autoregression`, `lightgbm_rich`,
-`lightgbm_qmean`), scores each against the oracle, and appends rows to
-[`outputs/plans/capture_campaign_results.md`](../outputs/plans/capture_campaign_results.md).
-Expect ~20–40 min (the first oracle solve dominates; it is cached afterward).
-
-What you should see (open-loop): AR ~0.47 val / ~0.40 test is the best
-open-loop; `lightgbm_rich` is *worse* (0.39/0.30) despite the best rank skill —
-that is the median-forecast problem (Entry 015), and the reason MPC exists.
-
-## Recipe 2 — run the champion (MPC)
+## Recipe 1 — evaluate the point models
 
 ```bash
-python scripts/run_mpc_trials.py val            # validation
-python scripts/run_mpc_trials.py test           # held-out (do once)
-python scripts/run_mpc_trials.py val --models lightgbm_qmean   # a subset
+python scripts/run_common_eval.py --resolution 30min --base outputs/trials_30min \
+  --executors openloop,mpc30,mpc_spike
 ```
 
-This drives the same models through `mpc.simulate_region_mpc`. The champion is
-`lightgbm_rich` under MPC: **0.546 val / 0.562 test**. Compare against the
-open-loop numbers from Recipe 1 to see MPC's ~15–20-point lift — and note it
-makes the *naive* model worse, because MPC only pays when the forecaster has
-real short-lead skill (Entry 016).
+Computes (and caches) the oracle for the window, walks every point model
+(`naive_similar_day`, `autoregression`, the `lear*` family, `lightgbm_rich*`)
+through each executor, and writes per-trial ledgers under `outputs/trials_30min/`.
+`--models` restricts the set; `--test-start/--test-end` change the window;
+`--refit-days`/`--lookback-days` change the cadence (defaults 28 / 548).
 
-Runtime note: a 122-day MPC run is a few minutes thanks to the telescoped LP
-horizon and HiGHS. Re-forecasting is the bottleneck, not the LP.
+The executors: **openloop** (one forecast + LP solve per day), **mpc30**
+(re-forecast every 30 min — the over-reactive baseline), and **mpc_spike** (the
+champion executor: forecast once a day, re-solve every interval from the true
+state of charge, and observe the live price only above the **$3000 spike gate**).
 
-## Recipe 3 — the executor ablation grid
+## Recipe 2 — build and score the quantile fans
+
+Probabilistic models emit a *fan*; the dispatch mode is independent of the
+forecast, so `testbed.py` builds the fan **once** and replays every executor over
+it (seconds instead of a refit each).
 
 ```bash
-python scripts/run_mpc_ablations.py val    # frequency + persistence grid
-python scripts/run_mpc_ablations.py test   # the accepted variant, once
+# build the fans (daily cadence)
+python scripts/testbed.py build \
+  --models lightgbm_qmean_weather_fourier,lear_qmean_torch_fourier \
+  --windows full --resolution 30min --fan-cadence 48
+
+# replay the dispatch executors over the frozen fans
+python scripts/testbed.py grid \
+  --models lightgbm_qmean_weather_fourier,lear_qmean_torch_fourier \
+  --windows full --resolution 30min --fan-cadence 48 \
+  --executors point_ol,mpc_spikegate
 ```
 
-This isolates the executor knobs (`resolve_every`, `reforecast_every`,
-`persistence_tau`, `persistence_gate`). Findings you should reproduce: 30-min
-re-forecast beats 60-min (decisively on test); re-solve frequency alone does
-nothing; persistence blending hurts unless gated to extremes, and even then only
-breaks even. See Entries 018–019 for the mechanisms.
+The champion is **`lightgbm_qmean_weather_fourier` under spike-gated MPC ≈ 0.55
+balanced / 0.585 pooled**. Building a fan is the expensive step (~minutes/refit on
+CPU); the grid replay is cheap because it reuses the cached fan.
+
+## Recipe 3 — the balanced-capture leaderboard
+
+```bash
+python scripts/balanced_eval.py --base outputs/trials_30min \
+  --trials <trial names> --out my_eval
+```
+
+Scores the named trials by **balanced** (per-month) and **pooled** capture against
+the oracle and writes a per-month heatmap. Rank on balanced; treat sub-1-point
+gaps as noise.
 
 ## Recipe 4 — a custom trial from Python
 
@@ -75,27 +81,27 @@ from grian.sim.trials import make_config
 from grian.sim.runner import run_trial
 from grian.sim.mpc import simulate_region_mpc
 
-data = pd.read_parquet("data/processed/SA1_5min_sim.parquet")
+data = pd.read_parquet("data/processed/SA1_30min_sim.parquet")
 
 cfg = make_config({
     "trial_name": "my_experiment",
-    "model": "lightgbm_rich",
+    "model": "lightgbm_qmean_weather_fourier",
     "regions": ["SA1"],
-    "resolution": "5min",
-    "horizon": 288,
-    "test_start": "2023-07-01", "test_end": "2023-09-30",
-    "refit_days": 7,
+    "resolution": "30min",
+    "horizon": 48,
+    "test_start": "2025-07-01", "test_end": "2026-06-30",
+    "refit_days": 28,
+    "train_lookback_days": 548,
     "embargo": 0,                       # trading sim → 0 (see architecture.md)
     "transform": "asinh",
-    "model_params": {"n_estimators": 300, "learning_rate": 0.05},
     "dispatch": {"power_mw": 100.0, "duration_hours": 2.0,
                  "efficiency": 0.85, "max_cycles": 2},
-    "mpc": {"resolve_every": 6, "reforecast_every": 6},
+    # Spike-gated MPC: forecast daily, re-solve every interval, gate at $3000.
+    "mpc": {"resolve_every": 1, "reforecast_every": 48, "observe_gate": 3000},
 })
 
-# Open-loop: omit simulate_fn.  MPC: pass simulate_region_mpc.
-results = run_trial({"SA1": data}, cfg,
-                    base="outputs/trials",
+# Open-loop: omit simulate_fn.  Spike-gated MPC: pass simulate_region_mpc.
+results = run_trial({"SA1": data}, cfg, base="outputs/trials",
                     simulate_fn=simulate_region_mpc)
 ```
 
@@ -110,12 +116,12 @@ import pandas as pd
 from grian.sim import lp, oracle
 from grian.sim.analytics import capture_report
 
-data = pd.read_parquet("data/processed/SA1_5min_sim.parquet")
-prices = data.loc["2023-07-01":"2023-09-30", "price"]
+data = pd.read_parquet("data/processed/SA1_30min_sim.parquet")
+prices = data.loc["2025-07-01":"2026-06-30", "price"]
 
 orc = oracle.compute_oracle(
-    prices, dt_hours=lp.resolution_dt_hours("5min"),
-    cache_path="outputs/trials/_oracle/SA1/val.parquet",
+    prices, dt_hours=lp.resolution_dt_hours("30min"),
+    cache_path="outputs/trials/_oracle/SA1/common.parquet",
 )
 
 ledger = pd.read_parquet("outputs/trials/my_experiment/SA1/ledger.parquet")
@@ -127,74 +133,41 @@ print(f"spearman  {rep['mean_daily_spearman']:.3f}")   # intraday rank skill
 print(rep["top10_regret"])                             # worst days
 ```
 
-`capture_report` returns: `capture_ratio`, `total_revenue`, `oracle_revenue`,
-`regret_daily` (Series), `top10_regret` (DataFrame), `oracle_top10_share`, and
-`mean_daily_spearman`. It **asserts capture ≤ 1** — a violation means a
-scoreboard bug (trap T7), not a good model.
+`capture_report` returns `capture_ratio`, `total_revenue`, `oracle_revenue`,
+`regret_daily`, `top10_regret`, `oracle_top10_share`, and `mean_daily_spearman`.
+It **asserts capture ≤ 1.03** — a larger value is a scoreboard bug, not
+a good model (the small margin absorbs the oracle's ~0.2% block conservatism).
 
-## Recipe 6 — a hyperparameter sweep
-
-```python
-from grian.sim.search import run_search, bayesian_strategy
-
-space = {
-    "model_params.n_estimators": [100, 200, 500],
-    "model_params.learning_rate": (0.01, 0.2, "log"),
-    "model_params.num_leaves": [15, 31, 63],
-}
-best = run_search(base_config=cfg, space=space,
-                  data_by_region={"SA1": data},
-                  strategy_fn=bayesian_strategy,
-                  metric_key="total_revenue", base="outputs/trials")
-```
-
-Sweep on **validation** only. Note `metric_key` operates on `metrics.json`
-fields (revenue, MAE, Sharpe); to select on *capture ratio* you currently score
-with `capture_report` after the run (a `capture`-aware search hook is a
-reasonable extension — see [extending.md](extending.md)).
-
-## Recipe 7 — regenerate the report figures
+## Recipe 6 — the dashboard
 
 ```bash
-python scripts/build_campaign_report.py
+python scripts/build_dashboard.py --base outputs/trials_30min --region SA1
 ```
 
-Rebuilds all 8 figures under `outputs/figures/campaign/` from the current trial
-ledgers. Run this after any trial that should change the headline, then review
-[`outputs/reports/capture_campaign_report.md`](../outputs/reports/capture_campaign_report.md).
-
-## Recipe 8 — the dashboard
-
-```bash
-python scripts/build_dashboard.py            # → outputs/dashboard/index.html
-```
-
-Builds a single self-contained HTML page (Plotly inlined, no server) — open it
-directly in a browser and rebuild when new trials land. Interactive comparison
-of all saved trials: sortable summary table, equity curves, forecast-vs-actual
-overlays (recent 5-min window with a rangeslider), day-ahead forecast fans,
-daily revenue, ablation comparison, and deep analytics. Only the most recent
-window is kept at 5-min resolution; everything else is daily or pre-aggregated,
-so the page stays small and fast.
+Builds a single self-contained HTML page (Plotly inlined, no server) →
+`outputs/dashboard/index.html`. Interactive comparison of all saved trials: the
+capture matrix, a balanced model-selection view, equity curves, forecast-vs-actual
+overlays, day-ahead fans, and a window slider that recomputes capture / regret over
+any sub-window.
 
 ## Reading results correctly
 
-- **Capture ratio is the headline.** Revenue in dollars is scale; capture is
-  the honest fraction of achievable value. `~0.50` is market-average;
-  `0.65–0.75` is strong.
+- **Capture ratio is the headline.** Revenue in dollars is scale; capture is the
+  honest fraction of achievable value. `~0.50` is market-average; `0.65–0.75` is
+  strong.
+- **Balanced over pooled.** Rank on the mean of the 12 monthly ratios; pooled is a
+  high-variance "did you catch the two big days".
 - **Spearman is the diagnostic, not the goal.** High rank skill with low capture
-  means the forecast ranks prices well but understates spike *magnitude* — the
-  LP sizes cycles by magnitude, so it under-trades (Entry 015).
-- **Always look at `top10_regret`.** A capture number is an average over a
-  window whose P&L lives in ~10 days. Two models with the same capture can fail
-  on completely different days.
-- **Sub-1-point differences on test are noise** given the spike concentration.
-  Do not crown a champion on a 0.3-point test edge.
+  means the forecast ranks prices well but understates spike *magnitude* — the LP
+  sizes cycles by magnitude, so it under-trades (Entry 015).
+- **Always look at `top10_regret`.** A capture number is an average over a window
+  whose P&L lives in ~10 days.
+- **Sub-1-point differences are noise** given the spike concentration; confirm any
+  win on a fresh sub-window before believing it. Do not crown a champion on a
+  0.3-point edge.
 
 ## Where results are recorded
 
-- Headline table (append-only, git SHAs): `outputs/plans/capture_campaign_results.md`
-- Per-trial artifacts: `outputs/trials/<name>/SA1/` (gitignored — reproducible)
-- Narrative + figures: `outputs/reports/capture_campaign_report.md`
+- Per-trial artifacts: `outputs/trials_30min/<name>/SA1/` (gitignored — reproducible)
 - Failures & surprises: `outputs/experiment_log.md` (**mandatory** — see
   [extending.md](extending.md#the-experiment-log-rule))

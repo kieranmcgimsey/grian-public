@@ -67,7 +67,7 @@ Then `"model": "my_model"` in any config works.
 
 - Add a test to `tests/test_sim_mpc.py::TestPredictFromNow` asserting your
   forecast changes when you hand it more data (predict-from-now).
-- Run one validation trial and check the forecast's dollar mean and max are in a
+- Run one trial and check the forecast's dollar mean and max are in a
   sane range vs actuals (a common failure is systematic under-dispersion — the
   forecast is too smooth, the LP under-trades; Entry 003).
 
@@ -96,7 +96,7 @@ To add a group (say, temperature):
 
 The engineering rules require a unit test proving that injecting a future value
 degrades (or that a leaky feature *improves*) the score — leakage that looks
-like skill is the most dangerous bug in forecasting (trap T6). Before adding an
+like skill is the most dangerous bug in forecasting. Before adding an
 exogenous feature that joins on a timestamp (pre-dispatch forecasts, weather),
 confirm you join on **issue time ≤ now**, not target time. A naive
 join-on-target-time is silently leaky and will look brilliant.
@@ -144,15 +144,13 @@ rediscovering it. Entries 013–019 are the campaign; use them as models.
 
 ```bash
 ruff check .        # lint — docstrings are enforced (pydocstyle)
-pytest -q           # full suite (198 tests)
+pytest -q           # full suite (301 tests)
 ```
 
 Every public function needs a Google-style docstring. Then:
 
-- Update [`outputs/plans/capture_campaign_results.md`](../outputs/plans/capture_campaign_results.md)
-  if you produced a headline number (one row, with the git SHA).
-- Update the status ledger in the [plan](../outputs/plans/capture_campaign.md)
-  if you closed a ticket.
+- Log any headline number and its git SHA in
+  [`outputs/experiment_log.md`](../outputs/experiment_log.md).
 - Commit on a branch; **push only to `kieranmcgimsey/grian`** — verify
   `git remote -v` first. This repo must never be pushed to an org remote.
 
@@ -164,4 +162,4 @@ Every public function needs a Google-style docstring. Then:
   config.
 - Don't touch the frozen metric (oracle definition, windows, battery spec)
   without a dated justification in the plan — it invalidates every prior number.
-- Don't tune on the test window. Ever.
+- Don't tune on the held-out window; confirm any win on a fresh sub-window instead.

@@ -185,7 +185,7 @@ _MODEL_PARAMS = {
                                    "calendar_encoding": "fourier"},
     # Torch (CPU) quantile fan — same grid as lear_qmean, fit in seconds via a
     # batched pinball GD fit with the Fourier calendar block unpenalised
-    # (HANDOFF.md §3-4). CPU-pinned: the planned MPS backend diverges (Entry 036).
+    # CPU-pinned: the planned MPS backend diverges (Entry 036).
     "lear_qmean_torch": {"quantiles": [0.05, 0.5, 0.9, 0.98], "alpha": 0.01},
     "lear_qmean_torch_weather": {"quantiles": [0.05, 0.5, 0.9, 0.98],
                                  "alpha": 0.01, "include_weather": True},

@@ -1,45 +1,47 @@
 # CLAUDE.md — operating manual for agents
 
-**Read this first.** This repository is a teaching curriculum for NEM
-electricity price forecasting. The package is called `grian`. The ten notebooks
-build from raw data to probabilistic price forecasts and battery dispatch value.
+**Read this first.** grian is a walk-forward battery-trading simulation
+environment for NEM electricity-price forecasting. The package is `grian`; the
+core is `src/grian/sim/` — models forecast day-ahead prices, an MPC dispatcher
+trades a battery against them, and **capture ratio** (revenue ÷ a
+perfect-foresight oracle's) is the headline metric.
 
 ## Repository map
 
 | Path | What it holds |
 |---|---|
-| `src/grian/` | The library: config, data, features, backtest, metrics, dispatch, viz, models/ |
-| `notebooks/` | Ten notebooks (01–10), run in order. Each imports from `src/grian/`. |
-| `tests/` | pytest suite covering backtest, metrics, dispatch. |
-| `config.yaml` | Region, date windows, paths, seeds — single source of run parameters. |
-| `data/` | Raw caches (NEMOSIS, NEMSEER, ERA5) and processed parquet. Gitignored. |
-| `outputs/` | Figures, saved models, reports. Partially gitignored. |
+| `src/grian/` | Core library: config, data, features, backtest, metrics, dispatch, viz, models/ |
+| `src/grian/sim/` | The simulation environment: models, features, lp, oracle, runner, mpc, ledger, analytics, trials, search, dashboard |
+| `tests/` | pytest suite covering the LP/oracle physics, backtest, metrics, dispatch |
+| `config.yaml` | Region, date windows, paths, seeds — single source of run parameters |
+| `data/` | Raw caches (NEMOSIS, ERA5) and processed parquet. Raw gitignored |
+| `outputs/` | The experiment log and the built dashboard (trial artifacts gitignored) |
 
 ## Engineering rules
 
-- **Thin notebooks.** All reusable logic lives in `src/grian/`; notebooks import,
-  explain, and visualise.
+- **Fat library, thin everything else.** All reusable logic lives in `src/grian/`;
+  scripts and docs import, run, and explain.
 - **No leakage.** Use the shared rolling-origin backtest with an embargo the
   length of the horizon. A unit test must prove that injecting a future value
   degrades the score.
-- **Honest benchmarks.** Every model reports skill against a similar-day naive
-  baseline and against AEMO pre-dispatch, on one fixed held-out period.
-- **Target transform.** Model the inverse hyperbolic sine of price; always
-  invert before scoring, so errors are in dollars.
+- **Honest benchmarks.** Every model is scored against a perfect-foresight oracle
+  and a similar-day naive baseline on one fixed held-out window. (An AEMO
+  pre-dispatch comparison is intended future work — NEMSEER is not wired in.)
+- **Target transform.** Model the inverse hyperbolic sine of price; always invert
+  before scoring, so errors are in dollars.
 - **Determinism.** Set seeds, pin versions, cache every download, never re-pull.
 - **CPU / Apple Silicon only.** No CUDA-only dependencies. Use MPS where torch
   benefits; keep everything runnable on a laptop.
 - **AEMO timestamps.** Interval-ending. Shifted back by one interval on load in
   `data.py`. This decision is applied once and documented once.
+- **Log failures.** Every bug, dead end, or surprising result goes in
+  `outputs/experiment_log.md` with a root-cause write-up.
 
 ## Conventions
 
-- Every public module, class, and function has a Google-style docstring.
-  Enforced by `ruff` with pydocstyle rules.
-- Every notebook opens with objectives and prerequisites, narrates each step,
-  ends with a summary, and writes a short report to `outputs/reports/`.
-- Every notebook sets 1–3 exercises with worked solutions in a later cell.
-- Figures are saved to `outputs/figures/` using shared style from `viz.py`.
+- Every public module, class, and function has a Google-style docstring, enforced
+  by `ruff` with pydocstyle rules.
+- Figures are saved to `outputs/figures/` using the shared style from `viz.py`.
 
 ## Development
 

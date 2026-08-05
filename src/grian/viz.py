@@ -1,8 +1,7 @@
 """Shared plotting style and figure-saving utility.
 
-All plot *construction* happens in notebook cells so figures can be
-tweaked during exploration. This module provides only the shared style
-and a save helper.
+Callers build their own plots; this module provides only the shared style
+and a figure-saving helper (used by the dashboard and analysis scripts).
 """
 
 from pathlib import Path

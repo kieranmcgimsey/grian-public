@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "grian"
 version = "0.1.0"
-description = "NEM electricity price forecasting: a hands-on curriculum"
+description = "NEM electricity price forecasting and battery-dispatch simulation"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
@@ -68,12 +68,6 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # Test files: docstrings not required, and long assert lines are acceptable.
 "tests/*" = ["D", "E501"]
-# Teaching notebooks: exploratory style — allow long lines, undocumented
-# functions, and throwaway locals.
-"notebooks/*" = ["D", "E", "F841"]
-# Figure-generation and build scripts for the learning-guide PDFs: not shipped
-# library code, so long plotting lines and throwaway locals are expected.
-"docs/learning_guides/*" = ["D", "E501", "F841"]
 # Archived one-off campaign scripts, kept for provenance and not maintained.
 "scripts/archive/*" = ["D", "E501", "F841"]
 

@@ -380,7 +380,7 @@ def dispatch_efficiency(ledger_df: pd.DataFrame) -> dict[str, float]:
 
 
 # ---------------------------------------------------------------------------
-# Capture ratio report (campaign plan §1.5, §5 W0.3)
+# Capture ratio report
 # ---------------------------------------------------------------------------
 
 def capture_report(
@@ -417,7 +417,7 @@ def capture_report(
     # (see oracle.py / Entry 026), so it is ~0.2% conservative vs a rolling
     # perfect-foresight controller. Allow that gap; still catch gross bugs.
     assert capture <= 1.03, (
-        f"Capture ratio {capture:.3f} > 1 — scoreboard bug (trap T7)"
+        f"Capture ratio {capture:.3f} > 1 — scoreboard bug"
     )
 
     regret = oracle_aligned - realised_daily
