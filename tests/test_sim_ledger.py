@@ -1,9 +1,9 @@
-"""Tests for grian.sim.ledger — trade logging and P&L computation."""
+"""Tests for grian.dispatch.ledger — trade logging and P&L computation."""
 
 import pandas as pd
 import pytest
 
-from grian.sim.ledger import (
+from grian.dispatch.ledger import (
     append_record,
     cumulative_pnl,
     daily_pnl,

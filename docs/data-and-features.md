@@ -81,7 +81,7 @@ ERA5 (CDS)   ── ssrd, t2m, u100, v100 ─────────┘   (+10h
 
 ---
 
-## 4. Engineered feature matrix (`sim/features.py::build_features`)
+## 4. Engineered feature matrix (`features.py::build_features`)
 
 All features are **strictly backward-looking**: every column uses `shift(≥1)` or
 a rolling window on already-shifted data, so the value at time *t* depends only

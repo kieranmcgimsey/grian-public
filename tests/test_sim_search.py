@@ -1,8 +1,8 @@
-"""Tests for grian.sim.search — hyperparameter search strategies."""
+"""Tests for grian.evaluation.search — hyperparameter search strategies."""
 
 import numpy as np
 
-from grian.sim.search import (
+from grian.evaluation.search import (
     _sample_value,
     _set_nested,
     bayesian_strategy,

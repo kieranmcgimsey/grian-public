@@ -10,12 +10,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from grian.sim.ablations import (
+from grian.dispatch.open_loop import run_trial
+from grian.evaluation.ablations import (
     make_ablation_suite,
 )
-from grian.sim.runner import run_trial
-from grian.sim.search import grid_strategy, run_search
-from grian.sim.trials import (
+from grian.evaluation.search import grid_strategy, run_search
+from grian.evaluation.trials import (
     _get_transform_pair,
     list_regions,
     list_trials,

@@ -42,7 +42,7 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/grian"]
-artifacts = ["src/grian/sim/assets/*.html"]
+artifacts = ["src/grian/assets/*.html"]
 
 [tool.ruff]
 src = ["src"]

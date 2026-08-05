@@ -6,13 +6,13 @@ dispatch as one: choose how much to charge and discharge in every interval so
 that arbitrage revenue is maximised, subject to the battery's physical limits.
 
 This is the hot-path replacement for the cvxpy model in
-``grian.dispatch.schedule``. It writes the same problem out with explicit
-state-of-charge (SOC — the energy currently stored, in MWh) variables and
+``grian.dispatch.cvxpy_reference.schedule``. It writes the same problem out with
+explicit state-of-charge (SOC — the energy currently stored, in MWh) variables and
 *sparse* constraint matrices, solved by the HiGHS solver via
 ``scipy.optimize.linprog``. This hand-written sparse formulation was chosen over
-the readable cvxpy reference (``grian.dispatch.schedule``): it is **~10–50× faster**
-and, unlike cvxpy, scales to the full-window oracle, while remaining provably
-equivalent — ``tests/test_sim_lp.py`` checks the two produce the same optimum at
+the readable cvxpy reference (``grian.dispatch.cvxpy_reference.schedule``): it is
+**~10–50× faster** and, unlike cvxpy, scales to the full-window oracle, while
+remaining provably equivalent — ``tests/test_sim_lp.py`` checks the two agree at
 both resolutions. Sparse means we only store the non-zero constraint
 coefficients, which is what lets the same formulation scale from a single
 trading day (n_steps = 288 at 5-min resolution) up to the full-window oracle

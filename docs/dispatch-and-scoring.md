@@ -4,7 +4,7 @@ This is the guide to the part of the system that must be *exactly* right: the
 battery model, the two executors, the oracle, and the capture ratio. Every
 number the campaign reports rests on this being correct, and it was catastrophically
 wrong for the repo's first dozen experiments (Entry 013). Read this before you
-touch anything under `lp.py`, `oracle.py`, `mpc.py`, or `runner.battery_dispatch`.
+touch anything under `dispatch/battery_lp.py`, `dispatch/oracle.py`, `dispatch/mpc.py`, or `open_loop.battery_dispatch`.
 
 ## The battery
 
@@ -25,7 +25,7 @@ Given a price vector, `solve_lp` finds the charge/discharge schedule that
 maximises `Σ price·(discharge − charge)·dt` subject to power, energy,
 efficiency, and per-window discharge-throughput (cycle) limits. It is a sparse
 HiGHS linear program — ~10–50× faster than the cvxpy reference in
-`grian/dispatch.py`, and it scales from one day (T=288) to the full-window
+`grian/dispatch/cvxpy_reference.py`, and it scales from one day (T=288) to the full-window
 oracle (T≈35 000) without densifying.
 
 ```python
@@ -40,7 +40,7 @@ result = lp.solve_lp(
 # -> {"charge", "discharge", "soc" (len T+1), "revenue", "status"}
 ```
 
-The cvxpy version (`grian.dispatch.schedule`) is the *readable reference*; a
+The cvxpy version (`grian.dispatch.cvxpy_reference.schedule`) is the *readable reference*; a
 unit test asserts the two agree to 1e-4 on random price vectors at both
 resolutions. Keep them in sync if you change the model.
 
@@ -94,7 +94,7 @@ oracle's own schedule through `clamp_action` and you recover its revenue to
 `tests/test_sim_lp.py::TestOracle`. If it ever fails, the planner, executor, and
 scorer have drifted out of agreement; fix that before trusting any result.
 
-## The open-loop executor (`runner.battery_dispatch`)
+## The open-loop executor (`open_loop.battery_dispatch`)
 
 The default. Once per day: forecast → one LP solve from the carried SOC →
 execute all 288 intervals with `clamp_action`, carrying SOC and the daily budget

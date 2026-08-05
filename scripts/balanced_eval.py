@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from grian.viz import apply_style, save_fig
+from grian.plotting import apply_style, save_fig
 
 REGION = "SA1"
 

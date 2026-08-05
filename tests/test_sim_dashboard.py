@@ -1,4 +1,4 @@
-"""Tests for grian.sim.dashboard bundle helpers.
+"""Tests for grian.dashboard bundle helpers.
 
 Covers the data-assembly functions the dashboard depends on: the name-derived
 stub config (so config-less run_common_eval trials still load), trial-dir
@@ -10,7 +10,7 @@ loader that reads the saved testbed fans.
 import numpy as np
 import pandas as pd
 
-from grian.sim import dashboard as dash
+from grian import dashboard as dash
 
 # ---------------------------------------------------------------------------
 # _stub_config — recover a trial's settings from its name

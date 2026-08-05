@@ -1,13 +1,17 @@
 """Baseline forecasters: similar-day naive and autoregression."""
 
+from __future__ import annotations
+
 import json
 import pickle
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from grian.sim.models._common import (
+from grian.models._shared import (
     _build_lag_features,
     _calendar_features,
     _linear_preprocessor,
@@ -15,7 +19,7 @@ from grian.sim.models._common import (
 )
 
 
-def _naive_fit(train_df, target_col, cfg):
+def _naive_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
     """Naive model "fitting" — just stores a reference to the data.
 
     Args:
@@ -33,7 +37,7 @@ def _naive_fit(train_df, target_col, cfg):
     }
 
 
-def _naive_predict(state, input_df, horizon):
+def _naive_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Produce a forecast by repeating last week's same-day profile.
 
     Args:
@@ -69,7 +73,7 @@ def _naive_predict(state, input_df, horizon):
     return pd.Series(values[:horizon], name="forecast")
 
 
-def _naive_save(state, path):
+def _naive_save(state: dict, path: str | Path) -> None:
     """Persist naive model state to disk.
 
     Args:
@@ -83,7 +87,7 @@ def _naive_save(state, path):
         json.dump({"resolution": state["resolution"]}, f)
 
 
-def _naive_load(path):
+def _naive_load(path: str | Path) -> dict:
     """Restore naive model state from disk.
 
     Args:
@@ -109,7 +113,7 @@ NAIVE_SIMILAR_DAY = {
 }
 
 
-def _ar_fit(train_df, target_col, cfg):
+def _ar_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
     """Fit a linear autoregressive model on lagged target values.
 
     Calendar terms are encoded for a *linear* fit: one-hot by default, or
@@ -157,7 +161,7 @@ def _ar_fit(train_df, target_col, cfg):
     }
 
 
-def _ar_predict(state, input_df, horizon):
+def _ar_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Produce an iterative AR forecast, conditioned on the live recent tail.
 
     Predict-from-now: the lags are seeded from ``input_df`` (the actual prices up
@@ -207,7 +211,7 @@ def _ar_predict(state, input_df, horizon):
     return pd.Series(forecasts, index=future_idx, name="forecast")
 
 
-def _ar_save(state, path):
+def _ar_save(state: dict, path: str | Path) -> None:
     """Persist AR model state.
 
     Args:
@@ -229,7 +233,7 @@ def _ar_save(state, path):
         }, f)
 
 
-def _ar_load(path):
+def _ar_load(path: str | Path) -> dict:
     """Restore AR model state.
 
     Args:

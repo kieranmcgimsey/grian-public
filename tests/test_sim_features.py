@@ -10,7 +10,7 @@ future-perturbation test.
 import numpy as np
 import pandas as pd
 
-from grian.sim.features import (
+from grian.features import (
     build_features,
     fourier_calendar_features,
     lean_lags,

@@ -1,4 +1,4 @@
-"""Walk-forward simulation runner.
+"""Open-loop walk-forward executor and trial runner.
 
 Runs a day-by-day trading simulation: for each trading day, optionally
 refits the model on all available history, produces a forecast over the
@@ -22,9 +22,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from grian.sim import ledger as ledger_mod
-from grian.sim import models as models_mod
-from grian.sim import trials as trials_mod
+from grian import models as models_mod
+from grian.dispatch import ledger as ledger_mod
+from grian.evaluation import trials as trials_mod
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def battery_dispatch(
         List of interval-level dicts with charge, discharge, soc, and
         revenue fields — one per interval in the horizon.
     """
-    from grian.sim import lp
+    from grian.dispatch import battery_lp as lp
 
     dispatch_cfg = cfg.get("dispatch", {})
     dt_hours = lp.resolution_dt_hours(cfg.get("resolution", "5min"))

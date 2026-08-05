@@ -1,15 +1,19 @@
 """Linear forecasters: the LEAR family (Lasso) and the batched quantile-LEAR (torch)."""
 
+from __future__ import annotations
+
 import json
 import logging
 import pickle
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from grian.sim.models._common import (
+from grian.models._shared import (
     _LINEAR_BY_NAME,
     _apply_conformal,
     _l1_penalty,
@@ -23,7 +27,9 @@ from grian.sim.models._common import (
 
 logger = logging.getLogger(__name__)
 
-def _linear_fit(train_df, target_col, cfg):
+def _linear_fit(
+    train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]
+) -> dict:
     """Fit a regularised linear model per horizon step on rich features.
 
     Args:
@@ -37,7 +43,7 @@ def _linear_fit(train_df, target_col, cfg):
     """
     from sklearn.pipeline import Pipeline
 
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -95,7 +101,7 @@ def _linear_fit(train_df, target_col, cfg):
     }
 
 
-def _linear_predict(state, input_df, horizon):
+def _linear_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Predict with the per-step linear pipelines (predict-from-now).
 
     Args:
@@ -106,7 +112,7 @@ def _linear_predict(state, input_df, horizon):
     Returns:
         Series of length `horizon`.
     """
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     models = state["models"]
     tail = state["train_tail"]
@@ -141,7 +147,7 @@ def _linear_predict(state, input_df, horizon):
     return pd.Series(predictions, index=future_idx, name="forecast")
 
 
-def _linear_save(state, path):
+def _linear_save(state: dict, path: str | Path) -> None:
     """Persist linear-model state (pipelines pickled together)."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -162,7 +168,7 @@ def _linear_save(state, path):
         }, f)
 
 
-def _linear_load(path):
+def _linear_load(path: str | Path) -> dict:
     """Restore linear-model state."""
     path = Path(path)
     with open(path / "linear_models.pkl", "rb") as f:
@@ -194,7 +200,9 @@ LINEAR = {
 }
 
 
-def _lear_qmean_fit(train_df, target_col, cfg):
+def _lear_qmean_fit(
+    train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]
+) -> dict:
     """Fit linear quantile regressors per (step, quantile) on rich features.
 
     .. deprecated::
@@ -219,7 +227,7 @@ def _lear_qmean_fit(train_df, target_col, cfg):
     from sklearn.linear_model import QuantileRegressor
     from sklearn.pipeline import Pipeline
 
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     warnings.warn(
         "lear_qmean (sklearn QuantileRegressor) is deprecated: ~8 min/refit and "
@@ -279,7 +287,7 @@ def _lear_qmean_fit(train_df, target_col, cfg):
 
 def _lear_qmean_last_row(state, input_df):
     """Build the origin-time feature row for prediction (predict-from-now)."""
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     tail = state["train_tail"]
     target_col = state["target_col"]
@@ -294,9 +302,11 @@ def _lear_qmean_last_row(state, input_df):
     return X.iloc[-1:], future_start, freq   # DataFrame — named-column encoding
 
 
-def _lear_qmean_predict_fan(state, input_df, horizon):
+def _lear_qmean_predict_fan(
+    state: dict, input_df: pd.DataFrame, horizon: int
+) -> dict[float, np.ndarray]:
     """Return the dollar-space quantile fan from the linear quantile models."""
-    from grian.sim.trials import _get_transform_pair
+    from grian.evaluation.trials import _get_transform_pair
 
     pipelines = state["pipelines"]
     qs = sorted(state["quantiles"])
@@ -326,7 +336,7 @@ def _lear_qmean_predict_fan(state, input_df, horizon):
     return fan
 
 
-def _lear_qmean_predict(state, input_df, horizon):
+def _lear_qmean_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Point forecast: integrate the fan quantiles to a dollar-space mean."""
     fan = _lear_qmean_predict_fan(state, input_df, horizon)
     qs = sorted(state["quantiles"])
@@ -338,7 +348,7 @@ def _lear_qmean_predict(state, input_df, horizon):
     return pd.Series(mean, index=idx, name="forecast")
 
 
-def _lear_qmean_save(state, path):
+def _lear_qmean_save(state: dict, path: str | Path) -> None:
     """Persist quantile-LEAR state."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -357,7 +367,7 @@ def _lear_qmean_save(state, path):
         }, f)
 
 
-def _lear_qmean_load(path):
+def _lear_qmean_load(path: str | Path) -> dict:
     """Restore quantile-LEAR state."""
     path = Path(path)
     with open(path / "lear_qmean_models.pkl", "rb") as f:
@@ -388,7 +398,9 @@ LEAR_QMEAN = {          # DEPRECATED — see _lear_qmean_fit; use LEAR_QMEAN_TOR
 }
 
 
-def _lear_qmean_torch_fit(train_df, target_col, cfg):
+def _lear_qmean_torch_fit(
+    train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]
+) -> dict:
     """Fit the batched linear quantile fan (torch, CPU).
 
     A single linear layer maps preprocessed features to every
@@ -412,7 +424,7 @@ def _lear_qmean_torch_fit(train_df, target_col, cfg):
 
     import torch
 
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -529,7 +541,9 @@ def _lear_qmean_torch_fit(train_df, target_col, cfg):
     }
 
 
-def _lear_qmean_torch_predict_fan(state, input_df, horizon):
+def _lear_qmean_torch_predict_fan(
+    state: dict, input_df: pd.DataFrame, horizon: int
+) -> dict[float, np.ndarray]:
     """Return the dollar-space quantile fan from the torch linear model.
 
     Mirrors :func:`_lear_qmean_predict_fan`: forward the origin-time feature
@@ -537,7 +551,7 @@ def _lear_qmean_torch_predict_fan(state, input_df, horizon):
     transform-space envelope, invert the target transform, sort quantiles per
     step, interpolate skipped steps, apply any conformal adjustment.
     """
-    from grian.sim.trials import _get_transform_pair
+    from grian.evaluation.trials import _get_transform_pair
 
     qs = sorted(state["quantiles"])
     n_q = len(qs)
@@ -573,7 +587,9 @@ def _lear_qmean_torch_predict_fan(state, input_df, horizon):
     return fan
 
 
-def _lear_qmean_torch_predict(state, input_df, horizon):
+def _lear_qmean_torch_predict(
+    state: dict, input_df: pd.DataFrame, horizon: int
+) -> pd.Series:
     """Point forecast: integrate the fan quantiles to a dollar-space mean."""
     fan = _lear_qmean_torch_predict_fan(state, input_df, horizon)
     qs = sorted(state["quantiles"])
@@ -585,7 +601,7 @@ def _lear_qmean_torch_predict(state, input_df, horizon):
     return pd.Series(mean, index=idx, name="forecast")
 
 
-def _lear_qmean_torch_save(state, path):
+def _lear_qmean_torch_save(state: dict, path: str | Path) -> None:
     """Persist torch quantile-LEAR state (weights + preprocessor + meta)."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -612,7 +628,7 @@ def _lear_qmean_torch_save(state, path):
         }, f)
 
 
-def _lear_qmean_torch_load(path):
+def _lear_qmean_torch_load(path: str | Path) -> dict:
     """Restore torch quantile-LEAR state."""
     path = Path(path)
     weights = np.load(path / "lear_qmean_torch_weights.npz")

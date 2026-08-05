@@ -18,15 +18,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from grian.sim import ledger as ledger_mod
-from grian.sim import lp
-from grian.sim import models as models_mod
-from grian.sim import trials as trials_mod
-from grian.sim.dispatch_prob import (
+from grian import models as models_mod
+from grian.dispatch import battery_lp as lp
+from grian.dispatch import ledger as ledger_mod
+from grian.dispatch.probabilistic import (
     combine_scenario_actions,
     quantile_gate_prices,
     quantile_weights,
 )
+from grian.evaluation import trials as trials_mod
 
 # Dispatch modes that consume a quantile fan rather than a single price path.
 # _SCENARIO_MODES maps each mode to how per-scenario actions are fused:
@@ -160,7 +160,7 @@ def simulate_region_mpc(
         cfg: Trial config; reads ``mpc.resolve_every`` (default 6) and
             ``mpc.reforecast_every`` (default 12) in addition to the
             standard keys.
-        dispatch_fn: Ignored — present for runner.run_trial compatibility.
+        dispatch_fn: Ignored — present for open_loop.run_trial compatibility.
         fan_cache: Optional ``{origin_timestamp: {quantile: path}}`` of
             pre-computed quantile fans. When given, the model is never fit
             or queried — forecasts are read from the cache — so many dispatch
@@ -177,7 +177,7 @@ def simulate_region_mpc(
     Returns:
         Dict with "ledger", "forecasts", "model_state", and (when
         ``record_fans``) "fans" — otherwise the same shape as
-        runner.simulate_region.
+        open_loop.simulate_region.
     """
     target_col = cfg["target_col"]
     horizon = cfg["horizon"]

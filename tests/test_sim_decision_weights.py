@@ -9,7 +9,7 @@ dependent) plus the plumbing that carries it into a LightGBM fit.
 import numpy as np
 import pandas as pd
 
-from grian.sim import models
+from grian import models
 
 
 def test_magnitude_weights_rise_with_price():

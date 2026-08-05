@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from grian.sim import lp
+from grian.dispatch import battery_lp as lp
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from raw NEM data up to probabilistic forecasts and battery dispatch value, scor
 against a perfect-foresight oracle.**
 
 grian is a **walk-forward battery-trading simulation environment**
-(`src/grian/sim/`): models forecast day-ahead NEM prices, a receding-horizon MPC
+(`src/grian/`): models forecast day-ahead NEM prices, a receding-horizon MPC
 dispatcher trades a 100 MW / 200 MWh battery against them under real physical
 constraints, a ledger records every interval, and **capture ratio** — your revenue
 ÷ a perfect-foresight oracle's — is the headline metric.
@@ -61,7 +61,7 @@ weather needs a free [Copernicus CDS](https://cds.climate.copernicus.eu/) key in
 
 ## The simulation environment
 
-A walk-forward, plain-functions-and-dicts test bench in `src/grian/sim/`: models
+A walk-forward, plain-functions-and-dicts test bench in `src/grian/`: models
 forecast, an executor dispatches the battery under real physics, a ledger records
 every interval, and capture ratio scores it against the oracle. Everything is saved
 to disk and reproducible from a frozen `config.json`.
@@ -180,9 +180,9 @@ oracle. The dashboard slider recomputes capture/regret over any sub-window.
 
 ```python
 import pandas as pd
-from grian.sim.trials import make_config
-from grian.sim.runner import run_trial
-from grian.sim.mpc import simulate_region_mpc
+from grian.evaluation.trials import make_config
+from grian.dispatch.open_loop import run_trial
+from grian.dispatch.mpc import simulate_region_mpc
 
 data = pd.read_parquet("data/processed/SA1_30min_sim.parquet")
 
@@ -217,7 +217,7 @@ Then score against the oracle with `analytics.capture_report` — see
 Create a dict with four functions and register it:
 
 ```python
-# In src/grian/sim/models.py
+# In src/grian/models/ (e.g. gradient_boosting.py)
 
 def _my_fit(train_df, target_col, cfg):
     """Train and return a state dict."""
@@ -247,8 +247,11 @@ Then use `"model": "my_model"` in any trial config.
 ## Repository layout
 
 ```
-src/grian/           # Core library: data, features, backtest, models, dispatch, viz
-src/grian/sim/       # Simulation environment (module map below)
+src/grian/
+  config.py  data.py  features.py  plotting.py  dashboard.py
+  models/            # forecasters + registry
+  dispatch/          # battery LP, oracle, executors (open-loop, MPC), ledger
+  evaluation/        # scoring, trials, sweeps, ablations
 tests/               # pytest suite (301 tests)
 scripts/             # Run scripts (see scripts/README.md)
 config.yaml          # Region, date windows, paths, seeds
@@ -257,21 +260,23 @@ outputs/             # Experiment log + dashboard (trial artifacts gitignored)
 ```
 
 <details>
-<summary><b><code>src/grian/sim/</code> module map</b></summary>
+<summary><b><code>src/grian/</code> module map</b></summary>
 
 | Module | Responsibility |
 |---|---|
-| `trials.py` | Config schema, artifact save/load, reproducibility |
-| `models.py` | The model registry (`fit`/`predict`/`save`/`load` dicts) |
+| `models/` | Forecasters + registry: baselines, linear, gradient_boosting, neural, conformal; `__init__` has `REGISTRY` + `get_model` |
 | `features.py` | Backward-looking feature groups |
-| `runner.py` | Open-loop walk-forward loop (`simulate_region`, `run_trial`) |
-| `lp.py` | Fast HiGHS arbitrage LP + feasibility clamp |
-| `oracle.py` | Perfect-foresight benchmark (the capture-ratio denominator) |
-| `mpc.py` | Receding-horizon MPC executor |
-| `ledger.py` | Append-only trade log and pure P&L functions |
-| `analytics.py` | Error breakdowns + `capture_report` |
-| `ablations.py` | "Wrong on purpose" trial configs |
-| `search.py` | Pluggable hyperparameter search |
+| `dispatch/battery_lp.py` | Fast HiGHS arbitrage LP + feasibility clamp |
+| `dispatch/cvxpy_reference.py` | Readable cvxpy reference LP (the fast one is tested against it) |
+| `dispatch/oracle.py` | Perfect-foresight benchmark (the capture-ratio denominator) |
+| `dispatch/open_loop.py` | Open-loop walk-forward loop (`simulate_region`, `run_trial`) |
+| `dispatch/mpc.py` | Receding-horizon MPC executor |
+| `dispatch/probabilistic.py` | Scenario / EV / CVaR dispatch over a quantile fan |
+| `dispatch/ledger.py` | Append-only trade log and pure P&L functions |
+| `evaluation/analytics.py` | Error breakdowns + `capture_report` |
+| `evaluation/trials.py` | Config schema, artifact save/load, reproducibility |
+| `evaluation/search.py` | Pluggable hyperparameter search |
+| `evaluation/ablations.py` | "Wrong on purpose" trial configs |
 | `dashboard.py` | Static HTML dashboard builder |
 
 </details>

@@ -1,4 +1,4 @@
-"""Tests for probabilistic dispatch fusion (grian.sim.dispatch_prob).
+"""Tests for probabilistic dispatch fusion (grian.dispatch.probabilistic).
 
 The load-bearing properties: quantile levels map to a proper probability
 distribution, and scenario actions fuse in decision space so that the CVaR
@@ -9,7 +9,7 @@ the robust worst-case action (trade only where every scenario agrees).
 import numpy as np
 import pytest
 
-from grian.sim.dispatch_prob import (
+from grian.dispatch.probabilistic import (
     combine_scenario_actions,
     quantile_gate_prices,
     quantile_weights,

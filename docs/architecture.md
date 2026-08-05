@@ -18,27 +18,29 @@ SHA that produced it).
 
 ## Module map
 
-`src/grian/sim/`:
+The library is three concerns — **`models/`** (forecast) → **`dispatch/`** (trade)
+→ **`evaluation/`** (score) — plus shared `config.py`, `data.py`, `features.py`,
+`plotting.py`, and `dashboard.py`.
 
 | Module | Responsibility | Key entry points |
 |---|---|---|
-| `trials.py` | Config schema, defaults, freezing, artifact save/load, reproducibility (git SHA + timestamp) | `make_config`, `save_ledger`, `_get_transform_pair` |
-| `models.py` | The model **registry**: one dict of `fit`/`predict`/`save`/`load` per model | `REGISTRY`, `get_model` |
-| `features.py` | Backward-looking feature groups for the tree models | `build_features` and the per-group builders |
-| `runner.py` | The **open-loop** walk-forward loop (one forecast/solve per day) | `simulate_region`, `run_trial`, `battery_dispatch` |
-| `lp.py` | The fast HiGHS arbitrage LP and the feasibility clamp | `solve_lp`, `clamp_action`, `resolution_dt_hours` |
-| `oracle.py` | Perfect-foresight benchmark (the capture-ratio denominator) | `compute_oracle` |
-| `mpc.py` | The **receding-horizon MPC** executor (re-solve + re-forecast) | `simulate_region_mpc` |
-| `ledger.py` | Append-only trade log and pure P&L functions | `append_record`, `summarise`, `to_dataframe` |
-| `analytics.py` | Error breakdowns and the **capture report** | `capture_report`, `error_by_hour`, … |
-| `ablations.py` | Preconfigured "wrong on purpose" trial configs | `make_ablation_suite` |
-| `search.py` | Pluggable hyperparameter search strategies | `run_search`, `bayesian_strategy` |
+| `models/` | The forecaster **registry** — a dict of `fit`/`predict`/`save`/`load` per model across `baselines`/`linear`/`gradient_boosting`/`neural`, `conformal` calibration, shared helpers in `_shared` | `REGISTRY`, `get_model` |
+| `features.py` | Backward-looking feature groups | `build_features` and the per-group builders |
+| `dispatch/battery_lp.py` | The fast HiGHS arbitrage LP and the feasibility clamp | `solve_lp`, `clamp_action`, `resolution_dt_hours` |
+| `dispatch/cvxpy_reference.py` | The readable cvxpy reference LP the fast one is tested against | `schedule`, `capture_ratio` |
+| `dispatch/oracle.py` | Perfect-foresight benchmark (the capture-ratio denominator) | `compute_oracle` |
+| `dispatch/open_loop.py` | The **open-loop** walk-forward loop (one forecast/solve per day) | `simulate_region`, `run_trial`, `battery_dispatch` |
+| `dispatch/mpc.py` | The **receding-horizon MPC** executor (re-solve + re-forecast) | `simulate_region_mpc` |
+| `dispatch/probabilistic.py` | Scenario / EV / CVaR dispatch over a quantile fan | `combine_scenario_actions`, `quantile_weights` |
+| `dispatch/ledger.py` | Append-only trade log and pure P&L functions | `append_record`, `summarise`, `to_dataframe` |
+| `evaluation/analytics.py` | Error breakdowns and the **capture report** | `capture_report`, `error_by_hour`, … |
+| `evaluation/trials.py` | Config schema, defaults, freezing, artifact save/load (git SHA + timestamp) | `make_config`, `save_ledger`, `_get_transform_pair` |
+| `evaluation/search.py` | Pluggable hyperparameter search strategies | `run_search`, `bayesian_strategy` |
+| `evaluation/ablations.py` | Preconfigured "wrong on purpose" trial configs | `make_ablation_suite` |
 | `dashboard.py` | Static HTML dashboard builder over the saved artifacts | `build_dashboard` (run `scripts/build_dashboard.py`) |
 
-The core library `src/grian/` (one level up) holds shared utilities: `config.py`,
-`data.py` (NEM/ERA5 loading), `viz.py` (plot style), `dispatch.py` (the readable
-cvxpy reference LP that `lp.py`'s fast twin is tested against), and
-`models/conformal.py` (the conformal wrapper the quantile models use).
+`config.py` and `data.py` (NEM/ERA5 loading) are the shared base; `plotting.py`
+holds the plot style.
 
 ## The two executors
 
@@ -52,7 +54,7 @@ forecasts into dispatch, and a trial picks one:
         ▼                     │                     │
    for each region ───────────┤                     │
                               ▼                     ▼
-                    runner.simulate_region   mpc.simulate_region_mpc
+                    open_loop.simulate_region   mpc.simulate_region_mpc
                     (OPEN-LOOP, default)      (RECEDING-HORIZON MPC)
                               │                     │
                     one forecast + one LP     re-solve every 30 min,
@@ -66,7 +68,7 @@ forecasts into dispatch, and a trial picks one:
                              ledger.append_record  (revenue booked here)
 ```
 
-- **Open-loop** (`runner.simulate_region`, the default): forecast the day at
+- **Open-loop** (`open_loop.simulate_region`, the default): forecast the day at
   midnight, solve the LP once, execute all 288 intervals against actual prices.
   Simple, fast, and the right baseline. This is what `battery_dispatch` drives.
 - **MPC** (`mpc.simulate_region_mpc`, pass as `simulate_fn`): walk the window in

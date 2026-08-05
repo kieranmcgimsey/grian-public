@@ -1,12 +1,16 @@
 """Gradient-boosted-tree forecasters: LightGBM point, rich, and quantile models."""
 
+from __future__ import annotations
+
 import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from grian.sim.models._common import (
+from grian.models._shared import (
     _apply_conformal,
     _build_lag_features,
     _calendar_features,
@@ -17,7 +21,7 @@ from grian.sim.models._common import (
 )
 
 
-def _lgbm_fit(train_df, target_col, cfg):
+def _lgbm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
     """Fit a LightGBM model for direct multi-step forecasting.
 
     Each horizon step gets its own model (direct strategy), which
@@ -105,7 +109,7 @@ def _lgbm_fit(train_df, target_col, cfg):
     }
 
 
-def _lgbm_predict(state, input_df, horizon):
+def _lgbm_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Produce a direct multi-step forecast from fitted LightGBM models.
 
     For horizon steps that don't have a dedicated model, linearly
@@ -150,7 +154,7 @@ def _lgbm_predict(state, input_df, horizon):
     return pd.Series(predictions, index=future_idx, name="forecast")
 
 
-def _lgbm_save(state, path):
+def _lgbm_save(state: dict, path: str | Path) -> None:
     """Persist LightGBM model state.
 
     Args:
@@ -175,7 +179,7 @@ def _lgbm_save(state, path):
         }, f)
 
 
-def _lgbm_load(path):
+def _lgbm_load(path: str | Path) -> dict:
     """Restore LightGBM model state.
 
     Args:
@@ -220,7 +224,9 @@ LIGHTGBM = {
 }
 
 
-def _lgbm_rich_fit(train_df, target_col, cfg):
+def _lgbm_rich_fit(
+    train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]
+) -> dict:
     """Fit LightGBM with the full feature set from features.py.
 
     Args:
@@ -233,7 +239,7 @@ def _lgbm_rich_fit(train_df, target_col, cfg):
     """
     import lightgbm as lgb
 
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -322,7 +328,7 @@ def _lgbm_rich_fit(train_df, target_col, cfg):
     }
 
 
-def _lgbm_rich_predict(state, input_df, horizon):
+def _lgbm_rich_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Predict using LightGBM with rich features.
 
     Rebuilds the full feature vector from the stored training tail,
@@ -337,7 +343,7 @@ def _lgbm_rich_predict(state, input_df, horizon):
     Returns:
         Series of length `horizon`.
     """
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     boosters = state["boosters"]
     tail = state["train_tail"]
@@ -381,7 +387,7 @@ def _lgbm_rich_predict(state, input_df, horizon):
     return pd.Series(predictions, index=future_idx, name="forecast")
 
 
-def _lgbm_rich_save(state, path):
+def _lgbm_rich_save(state: dict, path: str | Path) -> None:
     """Persist rich LightGBM state."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -401,7 +407,7 @@ def _lgbm_rich_save(state, path):
         }, f)
 
 
-def _lgbm_rich_load(path):
+def _lgbm_rich_load(path: str | Path) -> dict:
     """Restore rich LightGBM state."""
     import lightgbm as lgb
 
@@ -441,7 +447,9 @@ LIGHTGBM_RICH = {
 }
 
 
-def _lgbm_qmean_fit(train_df, target_col, cfg):
+def _lgbm_qmean_fit(
+    train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]
+) -> dict:
     """Fit LightGBM quantile boosters for dollar-space mean forecasting.
 
     Same rich feature set as lightgbm_rich, but one booster per
@@ -459,7 +467,7 @@ def _lgbm_qmean_fit(train_df, target_col, cfg):
     """
     import lightgbm as lgb
 
-    from grian.sim.features import build_features
+    from grian.features import build_features
 
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -543,7 +551,7 @@ def _lgbm_qmean_fit(train_df, target_col, cfg):
     }
 
 
-def _lgbm_qmean_predict(state, input_df, horizon):
+def _lgbm_qmean_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Forecast the conditional mean in dollar space via quantiles.
 
     Per step: predict all quantile levels (in transformed space),
@@ -561,8 +569,8 @@ def _lgbm_qmean_predict(state, input_df, horizon):
     Returns:
         Series of length horizon (in transformed space).
     """
-    from grian.sim.features import build_features
-    from grian.sim.trials import _get_transform_pair
+    from grian.evaluation.trials import _get_transform_pair
+    from grian.features import build_features
 
     boosters = state["boosters"]
     tail = state["train_tail"]
@@ -624,7 +632,9 @@ def _lgbm_qmean_predict(state, input_df, horizon):
     return pd.Series(forward_fn(predictions), index=future_idx, name="forecast")
 
 
-def _lgbm_qmean_predict_fan(state, input_df, horizon):
+def _lgbm_qmean_predict_fan(
+    state: dict, input_df: pd.DataFrame, horizon: int
+) -> dict[float, np.ndarray]:
     """Return the full quantile *fan* in dollar space (for probabilistic dispatch).
 
     Same booster evaluation as ``_lgbm_qmean_predict`` but keeps each quantile
@@ -638,8 +648,8 @@ def _lgbm_qmean_predict_fan(state, input_df, horizon):
     Returns:
         ``{tau: np.ndarray(horizon)}`` — dollar-space quantile forecasts.
     """
-    from grian.sim.features import build_features
-    from grian.sim.trials import _get_transform_pair
+    from grian.evaluation.trials import _get_transform_pair
+    from grian.features import build_features
 
     boosters = state["boosters"]
     tail = state["train_tail"]
@@ -682,7 +692,7 @@ def _lgbm_qmean_predict_fan(state, input_df, horizon):
     return fan
 
 
-def _lgbm_qmean_save(state, path):
+def _lgbm_qmean_save(state: dict, path: str | Path) -> None:
     """Persist quantile-mean LightGBM state."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
@@ -701,7 +711,7 @@ def _lgbm_qmean_save(state, path):
         }, f)
 
 
-def _lgbm_qmean_load(path):
+def _lgbm_qmean_load(path: str | Path) -> dict:
     """Restore quantile-mean LightGBM state."""
     import lightgbm as lgb
 

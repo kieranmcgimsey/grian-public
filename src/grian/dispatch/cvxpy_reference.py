@@ -27,7 +27,7 @@ def schedule(
     constraints.
 
     This is the readable cvxpy reference implementation; the hot path
-    uses the equivalent HiGHS model in ``grian.sim.lp``.
+    uses the equivalent HiGHS model in ``grian.dispatch.battery_lp``.
 
     Args:
         prices: Price vector for the scheduling horizon ($/MWh).

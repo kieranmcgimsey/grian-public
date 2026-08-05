@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from grian.sim import models, oracle
-from grian.sim.mpc import _day_budgets, simulate_region_mpc
+from grian import models
+from grian.dispatch import oracle
+from grian.dispatch.mpc import _day_budgets, simulate_region_mpc
 
 RNG = np.random.default_rng(11)
 

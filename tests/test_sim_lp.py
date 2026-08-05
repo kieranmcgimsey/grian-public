@@ -10,9 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from grian.dispatch import schedule
-from grian.sim import lp, oracle
-from grian.sim.analytics import capture_report
+from grian.dispatch import battery_lp as lp
+from grian.dispatch import oracle
+from grian.dispatch.cvxpy_reference import schedule
+from grian.evaluation.analytics import capture_report
 
 RNG = np.random.default_rng(7)
 

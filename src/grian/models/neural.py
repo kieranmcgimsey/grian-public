@@ -1,13 +1,17 @@
 """Deprecated neural forecasters (simple MLP, LSTM) — kept but not competitive."""
 
+from __future__ import annotations
+
 import json
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from grian.sim.models._common import (
+from grian.models._shared import (
     _build_lag_features,
     _calendar_features,
     _get_device,
@@ -15,7 +19,7 @@ from grian.sim.models._common import (
 )
 
 
-def _mlp_fit(train_df, target_col, cfg):
+def _mlp_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
     """Fit a two-layer MLP for direct multi-step forecasting.
 
     .. deprecated::
@@ -123,7 +127,7 @@ def _mlp_fit(train_df, target_col, cfg):
     }
 
 
-def _mlp_predict(state, input_df, horizon):
+def _mlp_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Produce an iterative forecast from the fitted MLP.
 
     Args:
@@ -179,7 +183,7 @@ def _mlp_predict(state, input_df, horizon):
     return pd.Series(forecasts, index=future_idx, name="forecast")
 
 
-def _mlp_save(state, path):
+def _mlp_save(state: dict, path: str | Path) -> None:
     """Persist MLP model state.
 
     Args:
@@ -205,7 +209,7 @@ def _mlp_save(state, path):
         }, f)
 
 
-def _mlp_load(path):
+def _mlp_load(path: str | Path) -> dict:
     """Restore MLP model state.
 
     Args:
@@ -246,7 +250,7 @@ SIMPLE_MLP = {
 }
 
 
-def _lstm_fit(train_df, target_col, cfg):
+def _lstm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
     """Fit an LSTM on windowed price sequences.
 
     .. deprecated::
@@ -363,7 +367,7 @@ def _lstm_fit(train_df, target_col, cfg):
     }
 
 
-def _lstm_predict(state, input_df, horizon):
+def _lstm_predict(state: dict, input_df: pd.DataFrame, horizon: int) -> pd.Series:
     """Produce an iterative LSTM forecast.
 
     Feeds the last `seq_len` values through the LSTM, gets one
@@ -421,7 +425,7 @@ def _lstm_predict(state, input_df, horizon):
     return pd.Series(forecasts, index=future_idx, name="forecast")
 
 
-def _lstm_save(state, path):
+def _lstm_save(state: dict, path: str | Path) -> None:
     """Persist LSTM state."""
     import torch
 
@@ -445,7 +449,7 @@ def _lstm_save(state, path):
         }, f)
 
 
-def _lstm_load(path):
+def _lstm_load(path: str | Path) -> dict:
     """Restore LSTM state."""
     import torch
 

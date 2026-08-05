@@ -77,9 +77,9 @@ gaps as noise.
 
 ```python
 import pandas as pd
-from grian.sim.trials import make_config
-from grian.sim.runner import run_trial
-from grian.sim.mpc import simulate_region_mpc
+from grian.evaluation.trials import make_config
+from grian.dispatch.open_loop import run_trial
+from grian.dispatch.mpc import simulate_region_mpc
 
 data = pd.read_parquet("data/processed/SA1_30min_sim.parquet")
 
@@ -113,8 +113,8 @@ results = run_trial({"SA1": data}, cfg, base="outputs/trials",
 
 ```python
 import pandas as pd
-from grian.sim import lp, oracle
-from grian.sim.analytics import capture_report
+from grian.dispatch import battery_lp as lp, oracle
+from grian.evaluation.analytics import capture_report
 
 data = pd.read_parquet("data/processed/SA1_30min_sim.parquet")
 prices = data.loc["2025-07-01":"2026-06-30", "price"]

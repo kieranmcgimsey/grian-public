@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from grian.sim import models
+from grian import models
 
 
 def _make_data(days=30, ppd=48):
@@ -137,7 +137,7 @@ def test_onehot_is_the_linear_default():
 
 def test_fourier_calendar_shape():
     """The Fourier encoder emits 2·Σharmonics features for [hour,dow,month]."""
-    from grian.sim.models import _fourier_calendar
+    from grian.models import _fourier_calendar
     arr = np.array([[13.5, 2, 6], [0.0, 6, 12]])  # hour, dow, month
     feats = _fourier_calendar(arr)
     # harmonics 3+1+2 = 6 → 12 sin/cos columns.

@@ -9,7 +9,7 @@ upper tail*, and the ``_apply_conformal`` helper shifts and re-sorts correctly.
 import numpy as np
 import pandas as pd
 
-from grian.sim import models
+from grian import models
 
 
 def _spiky(days=120, ppd=48):

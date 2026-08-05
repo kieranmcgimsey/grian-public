@@ -245,7 +245,12 @@ def headline_table(
         DataFrame with one row per trial, columns for all key metrics
         plus skill scores relative to the naive baseline.
     """
-    from grian.sim.trials import list_regions, list_trials, load_config, load_metrics
+    from grian.evaluation.trials import (
+        list_regions,
+        list_trials,
+        load_config,
+        load_metrics,
+    )
 
     base_path = Path(base)
     rows = []
@@ -253,7 +258,7 @@ def headline_table(
     naive_ledgers: dict[str, pd.DataFrame] = {}
     for region in list_regions(naive_trial, base_path):
         try:
-            from grian.sim.trials import load_ledger
+            from grian.evaluation.trials import load_ledger
             naive_ledgers[region] = load_ledger(naive_trial, region, base)
         except FileNotFoundError:
             pass
@@ -278,7 +283,7 @@ def headline_table(
 
             if region in naive_ledgers:
                 try:
-                    from grian.sim.trials import load_ledger
+                    from grian.evaluation.trials import load_ledger
                     model_ledger = load_ledger(trial_name, region, base)
                     skill = skill_vs_naive(model_ledger, naive_ledgers[region])
                     row["mae_skill"] = skill["mae_skill"]

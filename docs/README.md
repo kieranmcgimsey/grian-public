@@ -1,7 +1,7 @@
 # grian docs — start here
 
 This directory is the practical onboarding path for the **grian simulation
-environment**: the walk-forward battery-trading test bench in `src/grian/sim/`.
+environment**: the walk-forward battery-trading test bench in `src/grian/`.
 If you have been handed a ticket against this repo, read the guide that matches
 your task and follow it — each is a walkthrough with runnable commands, not a
 reference dump.
@@ -32,7 +32,7 @@ pieces fit, then reach for the specific guide you need.
 | [architecture.md](architecture.md) | Understand how the pieces fit: modules, data flow, the model registry, the config schema, where state lives. **Read this first.** |
 | [running-experiments.md](running-experiments.md) | Run a trial, an MPC trial, an ablation, or a sweep — and read the results correctly. |
 | [extending.md](extending.md) | Add a model, a feature group, or an executor knob without breaking the physics or the reproducibility guarantees. |
-| [data-and-features.md](data-and-features.md) | Understand the data sources, the timestamp/weather handling, and every feature group `sim/features.py` builds. |
+| [data-and-features.md](data-and-features.md) | Understand the data sources, the timestamp/weather handling, and every feature group `features.py` builds. |
 
 **Dispatch & scoring**
 

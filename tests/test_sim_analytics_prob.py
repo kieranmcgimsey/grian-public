@@ -3,7 +3,11 @@
 import numpy as np
 import pytest
 
-from grian.sim.analytics import crps_from_quantiles, pinball_loss, quantile_coverage
+from grian.evaluation.analytics import (
+    crps_from_quantiles,
+    pinball_loss,
+    quantile_coverage,
+)
 
 
 def test_pinball_known_value():

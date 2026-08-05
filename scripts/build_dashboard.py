@@ -13,7 +13,7 @@ Usage::
 
 import argparse
 
-from grian.sim.dashboard import DEFAULT_BUFFER_DAYS, build_dashboard
+from grian.dashboard import DEFAULT_BUFFER_DAYS, build_dashboard
 
 
 def main() -> None:

@@ -2,7 +2,7 @@
 
 **Read this first.** grian is a walk-forward battery-trading simulation
 environment for NEM electricity-price forecasting. The package is `grian`; the
-core is `src/grian/sim/` — models forecast day-ahead prices, an MPC dispatcher
+core is `src/grian/` (models → dispatch → evaluation) — models forecast prices, an MPC dispatcher
 trades a battery against them, and **capture ratio** (revenue ÷ a
 perfect-foresight oracle's) is the headline metric.
 
@@ -10,8 +10,10 @@ perfect-foresight oracle's) is the headline metric.
 
 | Path | What it holds |
 |---|---|
-| `src/grian/` | Core library: config, data, features, backtest, metrics, dispatch, viz, models/ |
-| `src/grian/sim/` | The simulation environment: models, features, lp, oracle, runner, mpc, ledger, analytics, trials, search, dashboard |
+| `src/grian/models/` | Forecasters + registry (baselines, linear, gradient_boosting, neural, conformal) |
+| `src/grian/dispatch/` | Battery LP, oracle, executors (open-loop, MPC), probabilistic dispatch, ledger |
+| `src/grian/evaluation/` | Scoring (analytics/capture), trial orchestration, sweeps, ablations |
+| `src/grian/` | Shared: config, data, features, plotting, dashboard |
 | `tests/` | pytest suite covering the LP/oracle physics, backtest, metrics, dispatch |
 | `config.yaml` | Region, date windows, paths, seeds — single source of run parameters |
 | `data/` | Raw caches (NEMOSIS, ERA5) and processed parquet. Raw gitignored |

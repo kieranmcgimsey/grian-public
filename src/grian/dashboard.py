@@ -32,8 +32,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from grian.sim import analytics as _an
-from grian.sim.trials import (
+from grian.evaluation import analytics as _an
+from grian.evaluation.trials import (
     get_git_sha,
     list_regions,
     load_config,

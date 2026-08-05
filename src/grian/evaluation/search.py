@@ -26,8 +26,8 @@ from typing import Any
 
 import numpy as np
 
-from grian.sim import runner as runner_mod
-from grian.sim import trials as trials_mod
+from grian.dispatch import open_loop as runner_mod
+from grian.evaluation import trials as trials_mod
 
 logger = logging.getLogger(__name__)
 

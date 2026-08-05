@@ -1,6 +1,6 @@
 """Tests for grian.dispatch battery optimisation."""
 
-from grian.dispatch import capture_ratio, schedule
+from grian.dispatch.cvxpy_reference import capture_ratio, schedule
 
 
 def test_schedule_importable():

@@ -276,7 +276,7 @@ def _decision_weights(y_transformed, transform, params):
         1-D float array of non-negative weights, mean-normalised to 1.0 so the
         effective learning rate is unchanged versus an unweighted fit.
     """
-    from grian.sim.trials import _get_transform_pair
+    from grian.evaluation.trials import _get_transform_pair
 
     _, inverse_fn = _get_transform_pair(transform)
     dollars = np.asarray(inverse_fn(np.asarray(y_transformed, dtype=float)),
@@ -334,8 +334,8 @@ def _conformal_fan_adjustments(boosters, quantiles, model_steps,
     Returns:
         ``{step: list[float]}`` — one dollar shift per quantile, or ``{}``.
     """
+    from grian.evaluation.trials import _get_transform_pair
     from grian.models.conformal import ConformalWrapper
-    from grian.sim.trials import _get_transform_pair
 
     _, inverse_fn = _get_transform_pair(transform)
     adjustments = {}

@@ -1,12 +1,12 @@
-"""Tests for grian.sim.runner — walk-forward simulation loop."""
+"""Tests for grian.dispatch.open_loop — walk-forward simulation loop."""
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from grian.sim import ledger as ledger_mod
-from grian.sim.runner import battery_dispatch, run_trial, simulate_region
-from grian.sim.trials import (
+from grian.dispatch import ledger as ledger_mod
+from grian.dispatch.open_loop import battery_dispatch, run_trial, simulate_region
+from grian.evaluation.trials import (
     load_metrics,
     make_config,
     trial_dir,

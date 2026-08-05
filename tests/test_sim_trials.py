@@ -1,4 +1,4 @@
-"""Tests for grian.sim.trials — config, artifact I/O, reproducibility."""
+"""Tests for grian.evaluation.trials — config, artifact I/O, reproducibility."""
 
 import json
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from grian.sim.trials import (
+from grian.evaluation.trials import (
     DEFAULT_CONFIG,
     _get_transform_pair,
     get_git_sha,

@@ -1,4 +1,4 @@
-"""Tests for grian.sim.models — fit/predict/save/load for every model type."""
+"""Tests for grian.models — fit/predict/save/load for every model type."""
 
 from unittest import mock
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from grian.sim.models import (
+from grian.models import (
     AUTOREGRESSION,
     LIGHTGBM,
     NAIVE_SIMILAR_DAY,
@@ -444,7 +444,7 @@ class TestLearQmeanTorch:
         """Vectorised pinball loss equals the per-element max formula."""
         import torch
 
-        from grian.sim.models import _pinball_loss
+        from grian.models import _pinball_loss
 
         pred = torch.tensor([[[0.0, 3.0]]])          # (B=1, S=1, Q=2)
         y = torch.tensor([[1.5]])                    # (B=1, S=1)
@@ -459,7 +459,7 @@ class TestLearQmeanTorch:
         """Masked (missing) targets contribute nothing to the loss."""
         import torch
 
-        from grian.sim.models import _pinball_loss
+        from grian.models import _pinball_loss
 
         pred = torch.tensor([[[1.0]], [[5.0]]])      # (B=2, S=1, Q=1)
         y = torch.tensor([[1.0], [0.0]])
@@ -471,7 +471,7 @@ class TestLearQmeanTorch:
 
     def test_leading_calendar_columns(self):
         """The calendar block is counted for both encodings via the fitted CT."""
-        from grian.sim.models import (
+        from grian.models import (
             _CALENDAR_COLS,
             _leading_calendar_columns,
             _linear_preprocessor,
@@ -497,7 +497,7 @@ class TestLearQmeanTorch:
         """The L1 penalty ignores the leading calendar block entirely."""
         import torch
 
-        from grian.sim.models import _l1_penalty
+        from grian.models import _l1_penalty
 
         n_calendar = 2
         # Only the trailing (real-feature) column should be penalised.

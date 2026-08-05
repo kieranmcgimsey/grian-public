@@ -32,11 +32,12 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from grian.sim import lp, oracle
-from grian.sim.analytics import capture_report
-from grian.sim.mpc import simulate_region_mpc
-from grian.sim.runner import run_trial
-from grian.sim.trials import make_config
+from grian.dispatch import battery_lp as lp
+from grian.dispatch import oracle
+from grian.dispatch.mpc import simulate_region_mpc
+from grian.dispatch.open_loop import run_trial
+from grian.evaluation.analytics import capture_report
+from grian.evaluation.trials import make_config
 
 logging.basicConfig(
     level=logging.INFO,

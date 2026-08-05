@@ -14,7 +14,7 @@ Ablations included:
     no_embargo       — Train right up to forecast origin (subtle leak).
 """
 
-from grian.sim.trials import make_config
+from grian.evaluation.trials import make_config
 
 
 def correct_baseline(

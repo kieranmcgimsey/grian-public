@@ -1,7 +1,7 @@
-"""Tests for grian.sim.ablations — preconfigured failure experiments."""
+"""Tests for grian.evaluation.ablations — preconfigured failure experiments."""
 
 
-from grian.sim.ablations import (
+from grian.evaluation.ablations import (
     ALL_ABLATIONS,
     correct_baseline,
     future_leakage,
@@ -11,7 +11,7 @@ from grian.sim.ablations import (
     no_transform,
     wrong_loss,
 )
-from grian.sim.trials import DEFAULT_CONFIG
+from grian.evaluation.trials import DEFAULT_CONFIG
 
 # ---------------------------------------------------------------------------
 # Individual ablation configs

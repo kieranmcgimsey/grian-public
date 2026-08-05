@@ -9,7 +9,7 @@ functional and underengineered — plain functions, plain dicts, explicit state
 ## Adding a model
 
 A model is a dict of four functions registered in `models.REGISTRY`. Add it in
-`src/grian/sim/models.py`:
+`src/grian/models/`:
 
 ```python
 def _my_fit(train_df, target_col, cfg):
@@ -73,7 +73,7 @@ Then `"model": "my_model"` in any config works.
 
 ## Adding a feature group
 
-Features live in `src/grian/sim/features.py`. Each group is a pure function
+Features live in `src/grian/features.py`. Each group is a pure function
 `DataFrame -> DataFrame` of **strictly backward-looking** columns, wired into
 `build_features`:
 
@@ -108,7 +108,7 @@ Executor behaviour is configured under `cfg["mpc"]` (MPC) or `cfg["dispatch"]`
 
 1. Add the key with a safe default to `trials.DEFAULT_CONFIG` — `make_config`
    **rejects unknown keys**, so this comes first.
-2. Read it in `mpc.simulate_region_mpc` (or `runner.battery_dispatch`).
+2. Read it in `mpc.simulate_region_mpc` (or `open_loop.battery_dispatch`).
 3. **Prove it changes the output.** Two configs that produce byte-identical
    ledgers mean the knob is dead config (Entry 002 — "configuration theatre").
    After wiring any flag, run two trials that differ only in it and diff the
