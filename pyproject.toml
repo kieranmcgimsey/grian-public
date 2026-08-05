@@ -35,9 +35,8 @@ dashboard = ["plotly>=5.20,<7"]
 dev = [
     "pytest>=8.0,<9",
     "ruff>=0.4,<1",
+    "mypy>=1.10,<2",
     "pre-commit>=3.6,<4",
-    "jupyter>=1.0,<2",
-    "ipykernel>=6.29,<7",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -68,8 +67,18 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # Test files: docstrings not required, and long assert lines are acceptable.
 "tests/*" = ["D", "E501"]
-# Archived one-off campaign scripts, kept for provenance and not maintained.
-"scripts/archive/*" = ["D", "E501", "F841"]
+
+# Type-checking is enforced on the models package (where the contract functions
+# carry full annotations). The dispatch/evaluation modules use numpy-heavy
+# dynamic patterns that mypy flags without real bugs; widening the scope is a
+# separate, deliberate follow-up rather than a blanket ignore.
+[tool.mypy]
+python_version = "3.11"
+files = ["src/grian/models"]
+ignore_missing_imports = true    # numpy/pandas/sklearn/lightgbm/torch/cvxpy: no/partial stubs
+check_untyped_defs = false       # check the types we added; don't force full coverage
+warn_redundant_casts = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

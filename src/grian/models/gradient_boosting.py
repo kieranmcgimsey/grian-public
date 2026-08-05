@@ -48,7 +48,7 @@ def _lgbm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
     X = pd.concat([lag_df, cal_df], axis=1)
 
     # Default LightGBM parameters — reasonable for price forecasting
-    lgb_params = {
+    lgb_params: dict[str, Any] = {
         "n_estimators": 300,
         "learning_rate": 0.05,
         "num_leaves": 31,
@@ -257,7 +257,7 @@ def _lgbm_rich_fit(
                        calendar_encoding=calendar_encoding)
     series = train_df[target_col]
 
-    lgb_params = {
+    lgb_params: dict[str, Any] = {
         "n_estimators": 300,
         "learning_rate": 0.05,
         "num_leaves": 31,
@@ -482,7 +482,7 @@ def _lgbm_qmean_fit(
                        calendar_encoding=calendar_encoding)
     series = train_df[target_col]
 
-    lgb_params = {
+    lgb_params: dict[str, Any] = {
         "n_estimators": params.get("n_estimators", 150),
         "learning_rate": params.get("learning_rate", 0.05),
         "num_leaves": 31,
@@ -513,7 +513,7 @@ def _lgbm_qmean_fit(
     is_cal = np.arange(n) >= (n - n_cal)
 
     boosters = {}
-    calib_forecasts = {} if calibrate else None
+    calib_forecasts: dict = {}   # populated only when `calibrate`; empty otherwise
     for step in model_steps:
         y_step = series.shift(-step)
         base = (X.notna().all(axis=1) & y_step.notna()).values

@@ -90,10 +90,9 @@ def _mlp_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) ->
 
     # Wire config loss into PyTorch criterion
     loss_name = cfg.get("loss", "pinball")
-    if loss_name == "pinball":
-        loss_fn = nn.SmoothL1Loss()
-    else:
-        loss_fn = nn.MSELoss()
+    loss_fn: nn.Module = (
+        nn.SmoothL1Loss() if loss_name == "pinball" else nn.MSELoss()
+    )
 
     X_t = torch.tensor(X_norm, dtype=torch.float32, device=device)
     y_t = torch.tensor(y_norm, dtype=torch.float32, device=device).unsqueeze(1)
