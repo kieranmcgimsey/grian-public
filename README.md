@@ -98,8 +98,8 @@ to disk and reproducible from a frozen `config.json`.
 | `lightgbm_qmean` (+ `_weather_fourier`, `_cal`) | Quantile GBM | Quantile boosters → a full fan (probabilistic dispatch) and an integrated mean (point). **`lightgbm_qmean_weather_fourier` is the champion.** `_cal` adds split-conformal calibration. |
 | `simple_mlp`, `lstm` | Neural (deprecated) | Never competitive here; retained and flagged deprecated (they carry the frozen-tail bug and produce no results). |
 
-Models are plain dicts with `fit`, `predict`, `save`, `load` keys — no classes, no
-inheritance. Adding one is a dict and four functions.
+Models are typed `ModelSpec` records (`fit`/`predict`/`save`/`load` + a typed
+params class) — no inheritance. Adding one is a `ModelSpec` and four functions.
 
 </details>
 
@@ -188,7 +188,7 @@ Then score against the oracle with `analytics.capture_report` — see
 <details>
 <summary><b>Add a new model</b></summary>
 
-Create a dict with four functions and register it:
+Write a typed `ModelSpec` (four functions + a typed params class) and register it:
 
 ```python
 # In src/grian/models/ (e.g. gradient_boosting.py)
@@ -204,11 +204,12 @@ def _my_predict(state, input_df, horizon):
 def _my_save(state, path): ...
 def _my_load(path): ...
 
-MY_MODEL = {
-    "name": "my_model", "output": "point",
-    "fit": _my_fit, "predict": _my_predict,
-    "save": _my_save, "load": _my_load,
-}
+MY_MODEL = ModelSpec(
+    name="my_model", output="point",
+    fit=_my_fit, predict=_my_predict,
+    save=_my_save, load=_my_load,
+    params=MyParams,          # frozen pydantic hyperparameters
+)
 REGISTRY["my_model"] = MY_MODEL
 ```
 

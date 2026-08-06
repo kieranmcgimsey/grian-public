@@ -17,7 +17,10 @@ artifacts per region.
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from grian.models.spec import ModelSpec
 
 import numpy as np
 import pandas as pd
@@ -115,7 +118,7 @@ def battery_dispatch(
 # ---------------------------------------------------------------------------
 
 def _simulate_day(
-    model_spec: dict,
+    model_spec: "ModelSpec",
     model_state: dict,
     day_data: pd.DataFrame,
     forecast_data: pd.DataFrame,
@@ -126,7 +129,7 @@ def _simulate_day(
     """Simulate one trading day: forecast, dispatch, execute, log.
 
     Args:
-        model_spec: Model spec dict (from models.REGISTRY).
+        model_spec: The model's :class:`~grian.models.spec.ModelSpec`.
         model_state: Current fitted model state.
         day_data: Full data available at forecast time (for features).
         forecast_data: Actual data for the forecast horizon (for scoring).
@@ -149,7 +152,7 @@ def _simulate_day(
         _, inverse_fn = trials_mod._get_transform_pair("identity")
 
     # Produce forecast
-    raw_forecast = model_spec["predict"](model_state, day_data, horizon)
+    raw_forecast = model_spec.predict(model_state, day_data, horizon)
 
     # Invert the target transform so forecasts are in original units
     forecast_values = inverse_fn(raw_forecast.values)
@@ -296,7 +299,7 @@ def simulate_region(
 
         # Refit model if needed
         if model_state is None or days_since_refit >= refit_days:
-            model_state = model_spec["fit"](train_data, target_col, cfg)
+            model_state = model_spec.fit(train_data, target_col, cfg)
             days_since_refit = 0
             logger.debug("Refit model on day %s (%d training rows)",
                          day.date(), len(train_data))
@@ -425,7 +428,7 @@ def run_trial(
         if sim_result["model_state"] is not None:
             model_spec = models_mod.get_model(cfg["model"])
             model_dir = trials_mod.trial_dir(trial_name, region, base=base) / "model"
-            model_spec["save"](sim_result["model_state"], model_dir)
+            model_spec.save(sim_result["model_state"], model_dir)
 
         results[region] = {
             "ledger_df": ledger_df,

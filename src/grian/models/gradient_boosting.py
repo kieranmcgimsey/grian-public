@@ -19,6 +19,13 @@ from grian.models._shared import (
     _periods_per_day,
     _quantile_weights,
 )
+from grian.models.params import (
+    LGBMParams,
+    LGBMQMeanParams,
+    LGBMRichParams,
+    default_lags,
+)
+from grian.models.spec import ModelSpec
 
 
 def _lgbm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
@@ -36,8 +43,6 @@ def _lgbm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
         State dict with fitted boosters (one per horizon step).
     """
     import lightgbm as lgb
-
-    from grian.models.params import LGBMParams, default_lags
 
     p = LGBMParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
@@ -199,14 +204,15 @@ def _lgbm_load(path: str | Path) -> dict:
     }
 
 
-LIGHTGBM = {
-    "name": "lightgbm",
-    "output": "point",
-    "fit": _lgbm_fit,
-    "predict": _lgbm_predict,
-    "save": _lgbm_save,
-    "load": _lgbm_load,
-}
+LIGHTGBM = ModelSpec(
+    name="lightgbm",
+    output="point",
+    fit=_lgbm_fit,
+    predict=_lgbm_predict,
+    save=_lgbm_save,
+    load=_lgbm_load,
+    params=LGBMParams,
+)
 
 
 def _lgbm_rich_fit(
@@ -225,8 +231,6 @@ def _lgbm_rich_fit(
     import lightgbm as lgb
 
     from grian.features import build_features
-    from grian.models.params import LGBMRichParams
-
     p = LGBMRichParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -399,14 +403,15 @@ def _lgbm_rich_load(path: str | Path) -> dict:
     }
 
 
-LIGHTGBM_RICH = {
-    "name": "lightgbm_rich",
-    "output": "point",
-    "fit": _lgbm_rich_fit,
-    "predict": _lgbm_rich_predict,
-    "save": _lgbm_rich_save,
-    "load": _lgbm_rich_load,
-}
+LIGHTGBM_RICH = ModelSpec(
+    name="lightgbm_rich",
+    output="point",
+    fit=_lgbm_rich_fit,
+    predict=_lgbm_rich_predict,
+    save=_lgbm_rich_save,
+    load=_lgbm_rich_load,
+    params=LGBMRichParams,
+)
 
 
 def _lgbm_qmean_fit(
@@ -430,8 +435,6 @@ def _lgbm_qmean_fit(
     import lightgbm as lgb
 
     from grian.features import build_features
-    from grian.models.params import LGBMQMeanParams
-
     p = LGBMQMeanParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -683,15 +686,16 @@ def _lgbm_qmean_load(path: str | Path) -> dict:
     return {**meta, "boosters": boosters, "train_tail": train_tail}
 
 
-LIGHTGBM_QMEAN = {
-    "name": "lightgbm_qmean",
-    "output": "point",
-    "fit": _lgbm_qmean_fit,
-    "predict": _lgbm_qmean_predict,
-    "predict_fan": _lgbm_qmean_predict_fan,   # quantile fan for probabilistic dispatch
-    "save": _lgbm_qmean_save,
-    "load": _lgbm_qmean_load,
-}
+LIGHTGBM_QMEAN = ModelSpec(
+    name="lightgbm_qmean",
+    output="point",
+    fit=_lgbm_qmean_fit,
+    predict=_lgbm_qmean_predict,
+    predict_fan=_lgbm_qmean_predict_fan,   # quantile fan for probabilistic dispatch
+    save=_lgbm_qmean_save,
+    load=_lgbm_qmean_load,
+    params=LGBMQMeanParams,
+)
 
 
 def main() -> None:

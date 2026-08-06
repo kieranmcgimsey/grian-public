@@ -8,12 +8,13 @@ functional and underengineered — plain functions, plain dicts, explicit state
 
 ## Adding a model
 
-A model is a dict of four functions registered in `models.REGISTRY`, plus a
-**typed params class** for its hyperparameters. Hyperparameters are not loose
-dict keys: each family has a frozen `pydantic` model in
-[`models/params.py`](../src/grian/models/params.py) (`extra="forbid"`, so a typo
-is an error, not a silent no-op), and the `fit` parses `cfg["model_params"]` into
-it at the top. Add both in `src/grian/models/`:
+A model is a typed `ModelSpec` (frozen dataclass, see
+[`models/spec.py`](../src/grian/models/spec.py)) bundling the four lifecycle
+functions, registered in `models.REGISTRY`, plus a **typed params class** for its
+hyperparameters. Hyperparameters are not loose dict keys: each family has a
+frozen `pydantic` model in [`models/params.py`](../src/grian/models/params.py)
+(`extra="forbid"`, so a typo is an error, not a silent no-op), and the `fit`
+parses `cfg["model_params"]` into it at the top. Add both in `src/grian/models/`:
 
 ```python
 from pydantic import BaseModel, ConfigDict
@@ -45,19 +46,19 @@ def _my_load(path):
     """Load and return the state dict."""
     ...
 
-MY_MODEL = {
-    "name": "my_model", "output": "point",
-    "fit": _my_fit, "predict": _my_predict,
-    "save": _my_save, "load": _my_load,
-}
+MY_MODEL = ModelSpec(
+    name="my_model", output="point",
+    fit=_my_fit, predict=_my_predict,
+    save=_my_save, load=_my_load,
+    params=MyParams,                     # the typed hyperparameters
+)
 REGISTRY["my_model"] = MY_MODEL
 ```
 
-Register the params class alongside the spec so the CLI and tuner can find it:
-add `"my_model": MyParams` to `_PARAMS_BY_SPEC_NAME` in
-[`models/__init__.py`](../src/grian/models/__init__.py). Then `"model": "my_model"`
-works in any config, `grian describe my_model` prints its schema, and the tuner
-can sweep its fields.
+The params class travels on the spec (`params=MyParams`), so `PARAMS_FOR` and
+`params_for("my_model")` resolve it automatically — nothing else to register.
+Then `"model": "my_model"` works in any config, `grian describe my_model` prints
+its schema, and the tuner can sweep its fields.
 
 ### Running and tuning a model
 

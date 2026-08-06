@@ -39,9 +39,9 @@ def test_calibration_widens_the_upper_tail():
     """The calibrated fan's upper quantile sits above the raw fan's."""
     df = _spiky()
     spec = models.get_model("lightgbm_qmean")
-    raw = spec["predict_fan"](spec["fit"](df, "price", _cfg(False)), df, 48)
-    cal_state = spec["fit"](df, "price", _cfg(True))
-    cal = spec["predict_fan"](cal_state, df, 48)
+    raw = spec.predict_fan(spec.fit(df, "price", _cfg(False)), df, 48)
+    cal_state = spec.fit(df, "price", _cfg(True))
+    cal = spec.predict_fan(cal_state, df, 48)
 
     assert cal_state["conformal_adjustments"]                 # non-empty
     assert np.mean(cal[0.98]) > np.mean(raw[0.98]) * 1.1      # tail widened up
@@ -54,7 +54,7 @@ def test_uncalibrated_has_no_adjustments():
     """Without the flag the fan is unchanged (adjustments are None)."""
     df = _spiky()
     spec = models.get_model("lightgbm_qmean")
-    state = spec["fit"](df, "price", _cfg(False))
+    state = spec.fit(df, "price", _cfg(False))
     assert state["conformal_adjustments"] is None
 
 

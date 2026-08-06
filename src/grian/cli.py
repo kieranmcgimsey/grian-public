@@ -33,7 +33,7 @@ def models() -> None:
     table.add_column("output")
     table.add_column("params class", style="cyan")
     for name in sorted(REGISTRY):
-        table.add_row(name, REGISTRY[name].get("output", "point"),
+        table.add_row(name, REGISTRY[name].output,
                       params_for(name).__name__)
     console().print(table)
 

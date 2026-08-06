@@ -60,9 +60,9 @@ class TestPredictFromNow:
         cfg = _base_cfg(data)
         spec = models.get_model("naive_similar_day")
         # Fit on the first half only.
-        state = spec["fit"](data.iloc[: 7 * 288], "price", cfg)
+        state = spec.fit(data.iloc[: 7 * 288], "price", cfg)
         # Predict handing over everything up to the end.
-        fc = spec["predict"](state, data, 288)
+        fc = spec.predict(state, data, 288)
         expected = data["price"].iloc[-7 * 288: -6 * 288].values
         np.testing.assert_allclose(fc.values, expected)
 
@@ -71,8 +71,8 @@ class TestPredictFromNow:
         data = _make_data()
         cfg = _base_cfg(data)
         spec = models.get_model("naive_similar_day")
-        state = spec["fit"](data.iloc[: 7 * 288], "price", cfg)
-        fc = spec["predict"](state, None, 288)
+        state = spec.fit(data.iloc[: 7 * 288], "price", cfg)
+        fc = spec.predict(state, None, 288)
         assert len(fc) == 288
 
     def test_lgbm_rich_uses_input_tail(self):
@@ -84,9 +84,9 @@ class TestPredictFromNow:
             model_params={"n_estimators": 10, "learning_rate": 0.1},
         )
         spec = models.get_model("lightgbm_rich")
-        state = spec["fit"](data.iloc[: 14 * 288], "price", cfg)
-        fc_stale = spec["predict"](state, None, 288)
-        fc_fresh = spec["predict"](state, data, 288)
+        state = spec.fit(data.iloc[: 14 * 288], "price", cfg)
+        fc_stale = spec.predict(state, None, 288)
+        fc_fresh = spec.predict(state, data, 288)
         # Fresh forecast must be anchored at the end of the data.
         assert fc_fresh.index[0] > data.index[-1]
         # And must differ from the stale one (different feature rows).
@@ -152,16 +152,17 @@ class TestMpcLoop:
         test_end = pd.Timestamp(cfg["test_end"]) + pd.Timedelta(days=1)
 
         # A "model" that returns the actual future prices.
-        spec = {
-            "name": "cheat",
-            "output": "point",
-            "fit": lambda df, col, c: {"n": len(df)},
-            "predict": lambda st, df, h: pd.Series(
+        spec = models.ModelSpec(
+            name="cheat",
+            output="point",
+            fit=lambda df, col, c: {"n": len(df)},
+            predict=lambda st, df, h: pd.Series(
                 data["price"].iloc[len(df): len(df) + h].values
             ),
-            "save": lambda st, p: None,
-            "load": lambda p: None,
-        }
+            save=lambda st, p: None,
+            load=lambda p: None,
+            params=models.NaiveParams,
+        )
         models.REGISTRY["cheat"] = spec
         try:
             cfg["model"] = "cheat"
@@ -193,16 +194,17 @@ def _register_cheat_fan(data):
         future = data["price"].iloc[len(df): len(df) + h].to_numpy()
         return {q: m * future for q, m in mults.items()}
 
-    return {
-        "name": "cheatfan",
-        "output": "quantile",
-        "fit": lambda df, col, c: {"n": len(df)},
-        "predict": lambda st, df, h: pd.Series(
+    return models.ModelSpec(
+        name="cheatfan",
+        output="quantile",
+        fit=lambda df, col, c: {"n": len(df)},
+        predict=lambda st, df, h: pd.Series(
             data["price"].iloc[len(df): len(df) + h].values),
-        "predict_fan": predict_fan,
-        "save": lambda st, p: None,
-        "load": lambda p: None,
-    }
+        predict_fan=predict_fan,
+        save=lambda st, p: None,
+        load=lambda p: None,
+        params=models.NaiveParams,
+    )
 
 
 class TestFanReplay:

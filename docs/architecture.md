@@ -6,8 +6,9 @@ what it is responsible for and what it must not do.
 
 ## Design philosophy
 
-The sim is deliberately **underengineered**: plain functions, plain dicts, no
-classes, no inheritance, no framework. A model is a dict of four functions. A
+The sim is deliberately **underengineered**: plain functions, explicit state, no
+framework. The surfaces you author and tune are typed (a model is a frozen
+`ModelSpec`; hyperparameters are frozen `pydantic` params classes). A
 config is a dict. A ledger is a list of dicts. State is passed explicitly, never
 hidden in objects. Readability and reproducibility beat cleverness every time. When you extend it, match that
 style (see [extending.md](extending.md)).
@@ -86,17 +87,19 @@ ledger, so revenue is always physically feasible and always scored identically.
 
 ## The model registry (extension point #1)
 
-A model is a dict with a fixed interface, registered by name:
+A model is a typed `ModelSpec` (a frozen dataclass, see `models/spec.py`) with a
+fixed interface, registered by name:
 
 ```python
-NAIVE_SIMILAR_DAY = {
-    "name": "naive_similar_day",
-    "output": "point",
-    "fit":     fn(train_df, target_col, cfg) -> state,      # returns any dict
-    "predict": fn(state, input_df, horizon)  -> pd.Series,  # length `horizon`
-    "save":    fn(state, path) -> None,                     # serialise to a dir
-    "load":    fn(path) -> state,                           # deserialise
-}
+NAIVE_SIMILAR_DAY = ModelSpec(
+    name="naive_similar_day",
+    output="point",
+    fit=fn(train_df, target_col, cfg) -> state,      # returns any dict
+    predict=fn(state, input_df, horizon)  -> pd.Series,  # length `horizon`
+    save=fn(state, path) -> None,                     # serialise to a dir
+    load=fn(path) -> state,                           # deserialise
+    params=NaiveParams,                               # the typed hyperparameters
+)
 REGISTRY["naive_similar_day"] = NAIVE_SIMILAR_DAY
 ```
 

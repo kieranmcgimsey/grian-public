@@ -17,6 +17,8 @@ from grian.models._shared import (
     _linear_preprocessor,
     _periods_per_day,
 )
+from grian.models.params import ARParams, NaiveParams, default_lags
+from grian.models.spec import ModelSpec
 
 
 def _naive_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
@@ -103,14 +105,15 @@ def _naive_load(path: str | Path) -> dict:
     return {"series": df.iloc[:, 0], "resolution": meta["resolution"]}
 
 
-NAIVE_SIMILAR_DAY = {
-    "name": "naive_similar_day",
-    "output": "point",
-    "fit": _naive_fit,
-    "predict": _naive_predict,
-    "save": _naive_save,
-    "load": _naive_load,
-}
+NAIVE_SIMILAR_DAY = ModelSpec(
+    name="naive_similar_day",
+    output="point",
+    fit=_naive_fit,
+    predict=_naive_predict,
+    save=_naive_save,
+    load=_naive_load,
+    params=NaiveParams,
+)
 
 
 def _ar_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
@@ -130,8 +133,6 @@ def _ar_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> 
     """
     from sklearn.linear_model import LinearRegression
     from sklearn.pipeline import Pipeline
-
-    from grian.models.params import ARParams, default_lags
 
     p = ARParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
@@ -260,14 +261,15 @@ def _ar_load(path: str | Path) -> dict:
     }
 
 
-AUTOREGRESSION = {
-    "name": "autoregression",
-    "output": "point",
-    "fit": _ar_fit,
-    "predict": _ar_predict,
-    "save": _ar_save,
-    "load": _ar_load,
-}
+AUTOREGRESSION = ModelSpec(
+    name="autoregression",
+    output="point",
+    fit=_ar_fit,
+    predict=_ar_predict,
+    save=_ar_save,
+    load=_ar_load,
+    params=ARParams,
+)
 
 
 def main() -> None:

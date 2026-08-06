@@ -107,7 +107,7 @@ class TestRegistry:
 
         A subset check, not exact equality: new experimental models (LEAR
         family, scarcity, decision-focused, quantile fans) are added often, and
-        each is validated structurally by ``test_all_models_have_required_keys``
+        each is validated structurally by ``test_all_models_have_required_fields``
         below. This test just guards the core set from accidental removal.
         """
         canonical = {
@@ -117,9 +117,10 @@ class TestRegistry:
         assert canonical <= set(REGISTRY.keys())
 
     def test_get_model_returns_spec(self):
-        """get_model returns a dict with required keys."""
+        """get_model returns a typed ModelSpec with the full interface."""
         spec = get_model("naive_similar_day")
-        assert set(spec.keys()) >= {"name", "output", "fit", "predict", "save", "load"}
+        for attr in ("name", "output", "fit", "predict", "save", "load", "params"):
+            assert hasattr(spec, attr)
 
     def test_get_model_unknown_raises(self):
         """get_model raises KeyError for unknown model."""
@@ -127,12 +128,12 @@ class TestRegistry:
             get_model("nonexistent_model")
 
     @pytest.mark.parametrize("name", REGISTRY.keys())
-    def test_all_models_have_required_keys(self, name):
-        """Every registered model has all required interface keys."""
+    def test_all_models_have_required_fields(self, name):
+        """Every registered model is a ModelSpec with the full interface."""
         spec = REGISTRY[name]
-        for key in ("name", "output", "fit", "predict", "save", "load"):
-            assert key in spec, f"Model {name!r} missing key {key!r}"
-        assert spec["output"] in ("point", "quantile")
+        for attr in ("name", "output", "fit", "predict", "save", "load", "params"):
+            assert hasattr(spec, attr), f"Model {name!r} missing {attr!r}"
+        assert spec.output in ("point", "quantile")
 
 
 # ---------------------------------------------------------------------------
@@ -144,30 +145,30 @@ class TestNaiveSimilarDay:
 
     def test_fit_returns_state(self, synthetic_5min, base_cfg):
         """Fitting produces a state dict with series and resolution."""
-        state = NAIVE_SIMILAR_DAY["fit"](synthetic_5min, "price", base_cfg)
+        state = NAIVE_SIMILAR_DAY.fit(synthetic_5min, "price", base_cfg)
         assert "series" in state
         assert "resolution" in state
 
     def test_predict_length(self, synthetic_5min, base_cfg):
         """Forecast has the requested horizon length."""
-        state = NAIVE_SIMILAR_DAY["fit"](synthetic_5min, "price", base_cfg)
-        forecast = NAIVE_SIMILAR_DAY["predict"](state, synthetic_5min, 288)
+        state = NAIVE_SIMILAR_DAY.fit(synthetic_5min, "price", base_cfg)
+        forecast = NAIVE_SIMILAR_DAY.predict(state, synthetic_5min, 288)
         assert len(forecast) == 288
 
     def test_predict_finite(self, synthetic_5min, base_cfg):
         """Forecast contains no NaN or inf values."""
-        state = NAIVE_SIMILAR_DAY["fit"](synthetic_5min, "price", base_cfg)
-        forecast = NAIVE_SIMILAR_DAY["predict"](state, synthetic_5min, 288)
+        state = NAIVE_SIMILAR_DAY.fit(synthetic_5min, "price", base_cfg)
+        forecast = NAIVE_SIMILAR_DAY.predict(state, synthetic_5min, 288)
         assert np.all(np.isfinite(forecast.values))
 
     def test_save_load_round_trip(self, synthetic_5min, base_cfg, tmp_path):
         """Save/load round-trip preserves forecast output."""
-        state = NAIVE_SIMILAR_DAY["fit"](synthetic_5min, "price", base_cfg)
-        forecast_before = NAIVE_SIMILAR_DAY["predict"](state, synthetic_5min, 48)
+        state = NAIVE_SIMILAR_DAY.fit(synthetic_5min, "price", base_cfg)
+        forecast_before = NAIVE_SIMILAR_DAY.predict(state, synthetic_5min, 48)
 
-        NAIVE_SIMILAR_DAY["save"](state, tmp_path / "naive_model")
-        restored = NAIVE_SIMILAR_DAY["load"](tmp_path / "naive_model")
-        forecast_after = NAIVE_SIMILAR_DAY["predict"](restored, synthetic_5min, 48)
+        NAIVE_SIMILAR_DAY.save(state, tmp_path / "naive_model")
+        restored = NAIVE_SIMILAR_DAY.load(tmp_path / "naive_model")
+        forecast_after = NAIVE_SIMILAR_DAY.predict(restored, synthetic_5min, 48)
 
         np.testing.assert_array_equal(forecast_before.values, forecast_after.values)
 
@@ -181,31 +182,31 @@ class TestAutoregression:
 
     def test_fit_returns_state(self, synthetic_5min, base_cfg):
         """Fitting produces a state with model, lags, last_values."""
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
         assert "model" in state
         assert "lags" in state
         assert "last_values" in state
 
     def test_predict_length(self, synthetic_5min, base_cfg):
         """Forecast has the requested horizon length."""
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
-        forecast = AUTOREGRESSION["predict"](state, synthetic_5min, 288)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
+        forecast = AUTOREGRESSION.predict(state, synthetic_5min, 288)
         assert len(forecast) == 288
 
     def test_predict_finite(self, synthetic_5min, base_cfg):
         """Forecast contains no NaN or inf values."""
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
-        forecast = AUTOREGRESSION["predict"](state, synthetic_5min, 288)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
+        forecast = AUTOREGRESSION.predict(state, synthetic_5min, 288)
         assert np.all(np.isfinite(forecast.values))
 
     def test_save_load_round_trip(self, synthetic_5min, base_cfg, tmp_path):
         """Save/load preserves forecast output."""
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
-        forecast_before = AUTOREGRESSION["predict"](state, synthetic_5min, 48)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
+        forecast_before = AUTOREGRESSION.predict(state, synthetic_5min, 48)
 
-        AUTOREGRESSION["save"](state, tmp_path / "ar_model")
-        restored = AUTOREGRESSION["load"](tmp_path / "ar_model")
-        forecast_after = AUTOREGRESSION["predict"](restored, synthetic_5min, 48)
+        AUTOREGRESSION.save(state, tmp_path / "ar_model")
+        restored = AUTOREGRESSION.load(tmp_path / "ar_model")
+        forecast_after = AUTOREGRESSION.predict(restored, synthetic_5min, 48)
 
         np.testing.assert_allclose(forecast_before.values,
                                    forecast_after.values, atol=1e-6)
@@ -213,7 +214,7 @@ class TestAutoregression:
     def test_custom_lags(self, synthetic_5min, base_cfg):
         """Custom lag config is respected."""
         base_cfg["model_params"] = {"lags": [10, 20]}
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
         assert state["lags"] == [10, 20]
 
     def test_predict_conditions_on_input(self, synthetic_5min, base_cfg):
@@ -223,12 +224,12 @@ class TestAutoregression:
         forecast from the fit-time tail regardless of ``input_df``, so under MPC
         it produced an identical (flat, near-term) forecast at every origin.
         """
-        state = AUTOREGRESSION["fit"](synthetic_5min, "price", base_cfg)
-        f_train = AUTOREGRESSION["predict"](state, synthetic_5min, 288)
+        state = AUTOREGRESSION.fit(synthetic_5min, "price", base_cfg)
+        f_train = AUTOREGRESSION.predict(state, synthetic_5min, 288)
         # Same model, but the recent observations are lifted by $40.
         shifted = synthetic_5min.copy()
         shifted["price"] = shifted["price"] + 40.0
-        f_shift = AUTOREGRESSION["predict"](state, shifted, 288)
+        f_shift = AUTOREGRESSION.predict(state, shifted, 288)
         # The near-term forecast must move with the input, not stay frozen …
         assert abs(f_shift.iloc[0] - f_train.iloc[0]) > 5.0
         # … and the forecast is not a degenerate flat line.
@@ -245,7 +246,7 @@ class TestLightGBM:
     def test_fit_returns_state(self, synthetic_5min, base_cfg):
         """Fitting produces a state with boosters."""
         base_cfg["model_params"] = {"n_estimators": 10}
-        state = LIGHTGBM["fit"](synthetic_5min, "price", base_cfg)
+        state = LIGHTGBM.fit(synthetic_5min, "price", base_cfg)
         assert "boosters" in state
         assert len(state["boosters"]) > 0
 
@@ -253,26 +254,26 @@ class TestLightGBM:
         """Forecast has the requested horizon length."""
         base_cfg["model_params"] = {"n_estimators": 10}
         base_cfg["horizon"] = 48
-        state = LIGHTGBM["fit"](synthetic_5min, "price", base_cfg)
-        forecast = LIGHTGBM["predict"](state, synthetic_5min, 48)
+        state = LIGHTGBM.fit(synthetic_5min, "price", base_cfg)
+        forecast = LIGHTGBM.predict(state, synthetic_5min, 48)
         assert len(forecast) == 48
 
     def test_predict_finite(self, synthetic_5min, base_cfg):
         """Forecast contains no NaN or inf values."""
         base_cfg["model_params"] = {"n_estimators": 10}
         base_cfg["horizon"] = 48
-        state = LIGHTGBM["fit"](synthetic_5min, "price", base_cfg)
-        forecast = LIGHTGBM["predict"](state, synthetic_5min, 48)
+        state = LIGHTGBM.fit(synthetic_5min, "price", base_cfg)
+        forecast = LIGHTGBM.predict(state, synthetic_5min, 48)
         assert np.all(np.isfinite(forecast.values))
 
     def test_save_load_round_trip(self, synthetic_5min, base_cfg, tmp_path):
         """Save/load preserves model metadata."""
         base_cfg["model_params"] = {"n_estimators": 10}
         base_cfg["horizon"] = 48
-        state = LIGHTGBM["fit"](synthetic_5min, "price", base_cfg)
+        state = LIGHTGBM.fit(synthetic_5min, "price", base_cfg)
 
-        LIGHTGBM["save"](state, tmp_path / "lgbm_model")
-        restored = LIGHTGBM["load"](tmp_path / "lgbm_model")
+        LIGHTGBM.save(state, tmp_path / "lgbm_model")
+        restored = LIGHTGBM.load(tmp_path / "lgbm_model")
 
         assert restored["lags"] == state["lags"]
         assert restored["resolution"] == state["resolution"]
@@ -284,12 +285,12 @@ class TestLightGBM:
         base_cfg["horizon"] = 48
 
         # Train both models on same data
-        lgbm_state = LIGHTGBM["fit"](synthetic_5min, "price", base_cfg)
-        naive_state = NAIVE_SIMILAR_DAY["fit"](synthetic_5min, "price", base_cfg)
+        lgbm_state = LIGHTGBM.fit(synthetic_5min, "price", base_cfg)
+        naive_state = NAIVE_SIMILAR_DAY.fit(synthetic_5min, "price", base_cfg)
 
         # Predict
-        lgbm_fc = LIGHTGBM["predict"](lgbm_state, synthetic_5min, 48)
-        naive_fc = NAIVE_SIMILAR_DAY["predict"](naive_state, synthetic_5min, 48)
+        lgbm_fc = LIGHTGBM.predict(lgbm_state, synthetic_5min, 48)
+        naive_fc = NAIVE_SIMILAR_DAY.predict(naive_state, synthetic_5min, 48)
 
         # Use last day as "actual" for scoring
         actual = synthetic_5min["price"].iloc[-48:].values
@@ -311,7 +312,7 @@ class TestSimpleMLP:
     def test_fit_returns_state(self, synthetic_5min, base_cfg):
         """Fitting produces a state with model weights."""
         base_cfg["model_params"] = {"epochs": 2, "hidden_dim": 16}
-        state = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
+        state = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
         assert "model_state_dict" in state
         assert "X_mean" in state
         assert "y_mean" in state
@@ -319,26 +320,26 @@ class TestSimpleMLP:
     def test_predict_length(self, synthetic_5min, base_cfg):
         """Forecast has the requested horizon length."""
         base_cfg["model_params"] = {"epochs": 2, "hidden_dim": 16}
-        state = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
-        forecast = SIMPLE_MLP["predict"](state, synthetic_5min, 48)
+        state = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
+        forecast = SIMPLE_MLP.predict(state, synthetic_5min, 48)
         assert len(forecast) == 48
 
     def test_predict_finite(self, synthetic_5min, base_cfg):
         """Forecast contains no NaN or inf values."""
         base_cfg["model_params"] = {"epochs": 2, "hidden_dim": 16}
-        state = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
-        forecast = SIMPLE_MLP["predict"](state, synthetic_5min, 48)
+        state = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
+        forecast = SIMPLE_MLP.predict(state, synthetic_5min, 48)
         assert np.all(np.isfinite(forecast.values))
 
     def test_save_load_round_trip(self, synthetic_5min, base_cfg, tmp_path):
         """Save/load preserves forecast output."""
         base_cfg["model_params"] = {"epochs": 2, "hidden_dim": 16}
-        state = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
-        forecast_before = SIMPLE_MLP["predict"](state, synthetic_5min, 48)
+        state = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
+        forecast_before = SIMPLE_MLP.predict(state, synthetic_5min, 48)
 
-        SIMPLE_MLP["save"](state, tmp_path / "mlp_model")
-        restored = SIMPLE_MLP["load"](tmp_path / "mlp_model")
-        forecast_after = SIMPLE_MLP["predict"](restored, synthetic_5min, 48)
+        SIMPLE_MLP.save(state, tmp_path / "mlp_model")
+        restored = SIMPLE_MLP.load(tmp_path / "mlp_model")
+        forecast_after = SIMPLE_MLP.predict(restored, synthetic_5min, 48)
 
         np.testing.assert_allclose(forecast_before.values,
                                    forecast_after.values, atol=1e-4)
@@ -348,18 +349,18 @@ class TestSimpleMLP:
         base_cfg["model_params"] = {"epochs": 3, "hidden_dim": 16}
         base_cfg["seed"] = 123
 
-        state1 = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
-        fc1 = SIMPLE_MLP["predict"](state1, synthetic_5min, 48)
+        state1 = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
+        fc1 = SIMPLE_MLP.predict(state1, synthetic_5min, 48)
 
-        state2 = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
-        fc2 = SIMPLE_MLP["predict"](state2, synthetic_5min, 48)
+        state2 = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
+        fc2 = SIMPLE_MLP.predict(state2, synthetic_5min, 48)
 
         np.testing.assert_allclose(fc1.values, fc2.values, atol=1e-4)
 
     def test_standardisation_stored(self, synthetic_5min, base_cfg):
         """Fitted state stores standardisation parameters."""
         base_cfg["model_params"] = {"epochs": 2, "hidden_dim": 16}
-        state = SIMPLE_MLP["fit"](synthetic_5min, "price", base_cfg)
+        state = SIMPLE_MLP.fit(synthetic_5min, "price", base_cfg)
         assert state["X_mean"] is not None
         assert state["X_std"] is not None
         assert abs(state["y_mean"]) > 0  # Prices aren't centered at zero
@@ -386,9 +387,9 @@ class TestCalendarEncoding:
         """lightgbm_rich with Fourier calendar fits, forecasts, records the mode."""
         df = self._data()
         spec = get_model("lightgbm_rich")
-        state = spec["fit"](df, "price", self._cfg("fourier"))
+        state = spec.fit(df, "price", self._cfg("fourier"))
         assert state["calendar_encoding"] == "fourier"
-        fc = spec["predict"](state, df, 48)
+        fc = spec.predict(state, df, 48)
         assert len(fc) == 48 and np.isfinite(fc.values).all()
 
     def test_qmean_fourier_fan_and_io_round_trip(self, tmp_path):
@@ -400,18 +401,18 @@ class TestCalendarEncoding:
                                 "quantiles": [0.05, 0.5, 0.9, 0.98],
                                 "calendar_encoding": "fourier"}}
         spec = get_model("lightgbm_qmean")
-        state = spec["fit"](df, "price", cfg)
+        state = spec.fit(df, "price", cfg)
         assert state["calendar_encoding"] == "fourier"
-        spec["save"](state, tmp_path)
-        reloaded = spec["load"](tmp_path)
+        spec.save(state, tmp_path)
+        reloaded = spec.load(tmp_path)
         assert reloaded["calendar_encoding"] == "fourier"
-        fan = spec["predict_fan"](reloaded, df, 48)
+        fan = spec.predict_fan(reloaded, df, 48)
         assert np.isfinite(fan[0.98]).all()
 
     def test_ordinal_is_the_default(self):
         """No calendar_encoding param → ordinal (unchanged legacy behaviour)."""
         df = self._data()
-        state = get_model("lightgbm_rich")["fit"](
+        state = get_model("lightgbm_rich").fit(
             df, "price", {"model": "lightgbm_rich", "resolution": "30min",
                           "horizon": 48, "target_col": "price", "transform": "asinh",
                           "model_params": {"step_stride": 12, "n_estimators": 20}})
@@ -518,8 +519,8 @@ class TestLearQmeanTorch:
         """Fan quantiles are finite and non-decreasing across levels."""
         df = self._data()
         spec = get_model("lear_qmean_torch_fourier")
-        state = spec["fit"](df, "price", self._cfg("fourier"))
-        fan = spec["predict_fan"](state, df, 48)
+        state = spec.fit(df, "price", self._cfg("fourier"))
+        fan = spec.predict_fan(state, df, 48)
         stack = np.vstack([fan[q] for q in sorted(fan)])
         assert np.isfinite(stack).all()
         assert (np.diff(stack, axis=0) >= -1e-6).all()
@@ -528,8 +529,8 @@ class TestLearQmeanTorch:
         """The integrated point forecast has horizon length and is finite."""
         df = self._data()
         spec = get_model("lear_qmean_torch")
-        state = spec["fit"](df, "price", self._cfg("onehot"))
-        fc = spec["predict"](state, df, 48)
+        state = spec.fit(df, "price", self._cfg("onehot"))
+        fc = spec.predict(state, df, 48)
         assert len(fc) == 48 and np.isfinite(fc.values).all()
 
     def test_fit_runs_on_cpu(self):
@@ -545,7 +546,7 @@ class TestLearQmeanTorch:
 
         df = self._data()
         with mock.patch("torch.device", side_effect=spy):
-            get_model("lear_qmean_torch")["fit"](df, "price", self._cfg("onehot"))
+            get_model("lear_qmean_torch").fit(df, "price", self._cfg("onehot"))
         assert any(c == "cpu" for c in calls)
         assert not any("mps" in c for c in calls)
 
@@ -553,10 +554,10 @@ class TestLearQmeanTorch:
         """Out-of-envelope extrapolation cannot produce inf in the fan."""
         df = self._data()
         spec = get_model("lear_qmean_torch")
-        state = spec["fit"](df, "price", self._cfg("onehot"))
+        state = spec.fit(df, "price", self._cfg("onehot"))
         # Corrupt the weights so the raw linear output would blow up post-sinh.
         state["weight"] = state["weight"] * 1e3
-        fan = spec["predict_fan"](state, df, 48)
+        fan = spec.predict_fan(state, df, 48)
         stack = np.vstack([fan[q] for q in sorted(fan)])
         assert np.isfinite(stack).all()      # clamp + envelope guard hold
 
@@ -564,12 +565,12 @@ class TestLearQmeanTorch:
         """save/load reproduces the fan exactly (weights + preprocessor)."""
         df = self._data()
         spec = get_model("lear_qmean_torch_weather_fourier")
-        state = spec["fit"](df, "price", self._cfg("fourier", weather=True))
-        fan = spec["predict_fan"](state, df, 48)
-        spec["save"](state, tmp_path)
-        reloaded = spec["load"](tmp_path)
+        state = spec.fit(df, "price", self._cfg("fourier", weather=True))
+        fan = spec.predict_fan(state, df, 48)
+        spec.save(state, tmp_path)
+        reloaded = spec.load(tmp_path)
         assert reloaded["calendar_encoding"] == "fourier"
         assert reloaded["include_weather"] is True
-        fan2 = spec["predict_fan"](reloaded, df, 48)
+        fan2 = spec.predict_fan(reloaded, df, 48)
         for q in fan:
             assert np.max(np.abs(fan[q] - fan2[q])) < 1e-4

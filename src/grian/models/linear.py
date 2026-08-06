@@ -24,6 +24,8 @@ from grian.models._shared import (
     _pinball_loss,
     _quantile_weights,
 )
+from grian.models.params import LearParams, LearTorchParams, LinearParams
+from grian.models.spec import ModelSpec
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +46,6 @@ def _linear_fit(
     from sklearn.pipeline import Pipeline
 
     from grian.features import build_features
-    from grian.models.params import LinearParams
-
     p = LinearParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -192,14 +192,15 @@ def _linear_load(path: str | Path) -> dict:
     }
 
 
-LINEAR = {
-    "name": "linear",
-    "output": "point",
-    "fit": _linear_fit,
-    "predict": _linear_predict,
-    "save": _linear_save,
-    "load": _linear_load,
-}
+LINEAR = ModelSpec(
+    name="linear",
+    output="point",
+    fit=_linear_fit,
+    predict=_linear_predict,
+    save=_linear_save,
+    load=_linear_load,
+    params=LinearParams,
+)
 
 
 def _lear_qmean_fit(
@@ -230,8 +231,6 @@ def _lear_qmean_fit(
     from sklearn.pipeline import Pipeline
 
     from grian.features import build_features
-    from grian.models.params import LearParams
-
     warnings.warn(
         "lear_qmean (sklearn QuantileRegressor) is deprecated: ~8 min/refit and "
         "it regularizes the Fourier calendar block. Use lear_qmean_torch instead.",
@@ -390,15 +389,17 @@ def _lear_qmean_load(path: str | Path) -> dict:
     }
 
 
-LEAR_QMEAN = {          # DEPRECATED — see _lear_qmean_fit; use LEAR_QMEAN_TORCH
-    "name": "lear_qmean",
-    "output": "quantile",
-    "fit": _lear_qmean_fit,
-    "predict": _lear_qmean_predict,
-    "predict_fan": _lear_qmean_predict_fan,
-    "save": _lear_qmean_save,
-    "load": _lear_qmean_load,
-}
+# DEPRECATED — see _lear_qmean_fit; use LEAR_QMEAN_TORCH.
+LEAR_QMEAN = ModelSpec(
+    name="lear_qmean",
+    output="quantile",
+    fit=_lear_qmean_fit,
+    predict=_lear_qmean_predict,
+    predict_fan=_lear_qmean_predict_fan,
+    save=_lear_qmean_save,
+    load=_lear_qmean_load,
+    params=LearParams,
+)
 
 
 def _lear_qmean_torch_fit(
@@ -428,8 +429,6 @@ def _lear_qmean_torch_fit(
     import torch
 
     from grian.features import build_features
-    from grian.models.params import LearTorchParams
-
     p = LearTorchParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
@@ -661,15 +660,16 @@ def _lear_qmean_torch_load(path: str | Path) -> dict:
     }
 
 
-LEAR_QMEAN_TORCH = {
-    "name": "lear_qmean_torch",
-    "output": "quantile",
-    "fit": _lear_qmean_torch_fit,
-    "predict": _lear_qmean_torch_predict,
-    "predict_fan": _lear_qmean_torch_predict_fan,
-    "save": _lear_qmean_torch_save,
-    "load": _lear_qmean_torch_load,
-}
+LEAR_QMEAN_TORCH = ModelSpec(
+    name="lear_qmean_torch",
+    output="quantile",
+    fit=_lear_qmean_torch_fit,
+    predict=_lear_qmean_torch_predict,
+    predict_fan=_lear_qmean_torch_predict_fan,
+    save=_lear_qmean_torch_save,
+    load=_lear_qmean_torch_load,
+    params=LearTorchParams,
+)
 
 
 def main() -> None:

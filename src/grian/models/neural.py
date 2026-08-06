@@ -17,6 +17,8 @@ from grian.models._shared import (
     _get_device,
     _periods_per_day,
 )
+from grian.models.params import LSTMParams, MLPParams, default_lags
+from grian.models.spec import ModelSpec
 
 
 def _mlp_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
@@ -44,8 +46,6 @@ def _mlp_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) ->
         "simple_mlp is deprecated and unmaintained (its predict has the "
         "frozen-tail bug and can't reforecast under MPC). Use LightGBM or LEAR.",
         DeprecationWarning, stacklevel=2)
-
-    from grian.models.params import MLPParams, default_lags
 
     p = MLPParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
@@ -239,14 +239,15 @@ def _mlp_load(path: str | Path) -> dict:
     }
 
 
-SIMPLE_MLP = {
-    "name": "simple_mlp",
-    "output": "point",
-    "fit": _mlp_fit,
-    "predict": _mlp_predict,
-    "save": _mlp_save,
-    "load": _mlp_load,
-}
+SIMPLE_MLP = ModelSpec(
+    name="simple_mlp",
+    output="point",
+    fit=_mlp_fit,
+    predict=_mlp_predict,
+    save=_mlp_save,
+    load=_mlp_load,
+    params=MLPParams,
+)
 
 
 def _lstm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> dict:
@@ -274,8 +275,6 @@ def _lstm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
         "lstm is deprecated and unmaintained (its predict has the frozen-tail "
         "bug and can't reforecast under MPC). Use LightGBM or LEAR.",
         DeprecationWarning, stacklevel=2)
-
-    from grian.models.params import LSTMParams
 
     p = LSTMParams.model_validate(cfg.get("model_params") or {})
     seq_len = p.seq_len
@@ -475,14 +474,15 @@ def _lstm_load(path: str | Path) -> dict:
     }
 
 
-LSTM = {
-    "name": "lstm",
-    "output": "point",
-    "fit": _lstm_fit,
-    "predict": _lstm_predict,
-    "save": _lstm_save,
-    "load": _lstm_load,
-}
+LSTM = ModelSpec(
+    name="lstm",
+    output="point",
+    fit=_lstm_fit,
+    predict=_lstm_predict,
+    save=_lstm_save,
+    load=_lstm_load,
+    params=LSTMParams,
+)
 
 
 def main() -> None:

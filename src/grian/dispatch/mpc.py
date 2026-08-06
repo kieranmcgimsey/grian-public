@@ -268,7 +268,7 @@ def simulate_region_mpc(
             ):
                 import time as _time
                 _t_refit = _time.time()
-                model_state = model_spec["fit"](
+                model_state = model_spec.fit(
                     tdata.iloc[:pos], target_col, cfg
                 )
                 days_since_refit = 0
@@ -285,9 +285,9 @@ def simulate_region_mpc(
                 fan_dollars = fan_cache[ts]
                 forecast_dollars = _forecast_from_fan(
                     fan_dollars, dispatch_mode, q_low, q_high)
-            elif dispatch_mode in _FAN_MODES and "predict_fan" in model_spec:
+            elif dispatch_mode in _FAN_MODES and model_spec.predict_fan is not None:
                 # Probabilistic: predict_fan returns dollar-space quantile paths.
-                fan_dollars = model_spec["predict_fan"](
+                fan_dollars = model_spec.predict_fan(
                     model_state, tdata.iloc[:pos], horizon)
                 forecast_dollars = _forecast_from_fan(
                     fan_dollars, dispatch_mode, q_low, q_high)
@@ -307,7 +307,7 @@ def simulate_region_mpc(
                                         len(recorded_fans))
             else:
                 fan_dollars = None
-                raw = model_spec["predict"](model_state, tdata.iloc[:pos], horizon)
+                raw = model_spec.predict(model_state, tdata.iloc[:pos], horizon)
                 forecast_dollars = inverse_fn(np.asarray(raw.values, dtype=float))
             forecast_origin = pos
             all_forecasts.append({

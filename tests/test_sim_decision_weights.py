@@ -76,7 +76,7 @@ def test_dfl_config_fits_and_predicts():
         },
     }
     spec = models.get_model("lightgbm_rich_dfl")
-    state = spec["fit"](data, "price", cfg)
-    fc = spec["predict"](state, data, 48)
+    state = spec.fit(data, "price", cfg)
+    fc = spec.predict(state, data, 48)
     assert len(fc) == 48
     assert np.isfinite(fc.values).all()

@@ -1,10 +1,11 @@
 """Model registry for the trading simulation.
 
-Each model is a plain dict of four functions (``fit``/``predict``/``save``/``load``);
-quantile models add ``predict_fan``. The registry maps model names to those dicts and
-``get_model`` looks one up. Implementations live in the sibling modules
-(``baselines``, ``linear``, ``gradient_boosting``, ``neural``); shared helpers in
-``_shared``.
+Each model is a typed :class:`~grian.models.spec.ModelSpec` — its name, output
+kind, the four lifecycle functions (``fit``/``predict``/``save``/``load``), its
+typed params class, and an optional ``predict_fan``. The registry maps model
+names to those specs and ``get_model`` looks one up. Implementations live in the
+sibling modules (``baselines``, ``linear``, ``gradient_boosting``, ``neural``);
+shared helpers in ``_shared``.
 """
 
 from grian.models._shared import (
@@ -44,9 +45,11 @@ from grian.models.params import (
     NaiveParams,
     SampleWeighting,
 )
+from grian.models.spec import ModelSpec
 
 __all__ = [
     "REGISTRY", "get_model", "PARAMS_FOR", "params_for", "seed_everything",
+    "ModelSpec",
     "NAIVE_SIMILAR_DAY", "AUTOREGRESSION", "LINEAR", "LEAR_QMEAN", "LEAR_QMEAN_TORCH",
     "LIGHTGBM", "LIGHTGBM_RICH", "LIGHTGBM_QMEAN", "SIMPLE_MLP", "LSTM",
     "NaiveParams", "ARParams", "LinearParams", "LearParams", "LearTorchParams",
@@ -59,22 +62,8 @@ __all__ = [
     "_periods_per_day", "_pinball_loss", "_quantile_weights",
 ]
 
-# Model family (a spec's canonical ``name``) → its typed params class.
-_PARAMS_BY_SPEC_NAME: dict[str, type] = {
-    "naive_similar_day": NaiveParams,
-    "autoregression": ARParams,
-    "linear": LinearParams,
-    "lear_qmean": LearParams,
-    "lear_qmean_torch": LearTorchParams,
-    "lightgbm": LGBMParams,
-    "lightgbm_rich": LGBMRichParams,
-    "lightgbm_qmean": LGBMQMeanParams,
-    "simple_mlp": MLPParams,
-    "lstm": LSTMParams,
-}
 
-
-REGISTRY: dict[str, dict] = {
+REGISTRY: dict[str, ModelSpec] = {
     "naive_similar_day": NAIVE_SIMILAR_DAY,
     "autoregression": AUTOREGRESSION,          # one-hot calendar (default)
     "autoregression_fourier": AUTOREGRESSION,  # Fourier calendar via model_params
@@ -142,14 +131,14 @@ REGISTRY: dict[str, dict] = {
 }
 
 
-def get_model(name: str) -> dict:
+def get_model(name: str) -> ModelSpec:
     """Look up a model spec by name.
 
     Args:
         name: Model name string (must be a key in REGISTRY).
 
     Returns:
-        Model spec dict with fit/predict/save/load functions.
+        The :class:`~grian.models.spec.ModelSpec` (fit/predict/save/load, params).
 
     Raises:
         KeyError: If the model name is not registered.
@@ -164,7 +153,7 @@ def get_model(name: str) -> dict:
 
 # Registered model name (including aliases) → its typed params class.
 PARAMS_FOR: dict[str, type] = {
-    name: _PARAMS_BY_SPEC_NAME[spec["name"]] for name, spec in REGISTRY.items()
+    name: spec.params for name, spec in REGISTRY.items()
 }
 
 
