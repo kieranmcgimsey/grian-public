@@ -8,13 +8,26 @@ functional and underengineered — plain functions, plain dicts, explicit state
 
 ## Adding a model
 
-A model is a dict of four functions registered in `models.REGISTRY`. Add it in
-`src/grian/models/`:
+A model is a dict of four functions registered in `models.REGISTRY`, plus a
+**typed params class** for its hyperparameters. Hyperparameters are not loose
+dict keys: each family has a frozen `pydantic` model in
+[`models/params.py`](../src/grian/models/params.py) (`extra="forbid"`, so a typo
+is an error, not a silent no-op), and the `fit` parses `cfg["model_params"]` into
+it at the top. Add both in `src/grian/models/`:
 
 ```python
+from pydantic import BaseModel, ConfigDict
+
+class MyParams(BaseModel):
+    """Tunable hyperparameters for my_model (defaults defined once, here)."""
+    model_config = ConfigDict(frozen=True, extra="forbid")   # immutable, typo-safe
+    n_units: int = 64
+    lr: float = 1e-3
+
 def _my_fit(train_df, target_col, cfg):
     """Train and return a state dict (any shape you like)."""
     # train_df[target_col] is already in transformed space (e.g. asinh).
+    p = MyParams.model_validate(cfg.get("model_params") or {})   # typed + validated
     ...
     return {"weights": ..., "target_col": target_col,
             "resolution": cfg.get("resolution", "5min")}
@@ -40,7 +53,28 @@ MY_MODEL = {
 REGISTRY["my_model"] = MY_MODEL
 ```
 
-Then `"model": "my_model"` in any config works.
+Register the params class alongside the spec so the CLI and tuner can find it:
+add `"my_model": MyParams` to `_PARAMS_BY_SPEC_NAME` in
+[`models/__init__.py`](../src/grian/models/__init__.py). Then `"model": "my_model"`
+works in any config, `grian describe my_model` prints its schema, and the tuner
+can sweep its fields.
+
+### Running and tuning a model
+
+Runs are driven by a typed YAML config (see [`configs/`](../configs)) and are
+reproducible down to the seed:
+
+```bash
+grian describe my_model                     # the typed hyperparameter schema
+grian run configs/my_model.yaml             # reproduce a full trial
+grian tune configs/my_model.yaml space.yaml --sampler gp --n-trials 40
+```
+
+The tuner ([`tuning.py`](../src/grian/tuning.py)) is Optuna-backed — `tpe` / `gp`
+/ `grid` / `random` samplers over the typed fields. The `ExperimentConfig`
+([`experiment.py`](../src/grian/experiment.py)) is the typed authoring layer; it
+produces the plain engine `cfg` via `make_config`, so the runner, `config.json`
+provenance, and every scorer are unchanged.
 
 ### The three invariants (all learned the hard way)
 

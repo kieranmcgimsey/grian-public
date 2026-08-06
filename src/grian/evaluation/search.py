@@ -1,21 +1,20 @@
-"""Hyperparameter search strategies.
+"""On-disk hyperparameter search: run every candidate as a full, saved trial.
 
-Each search strategy is a plain function with the signature:
+This module's niche is the *artifact* search driver — :func:`run_search`
+evaluates each point as a complete trial with its own ``config.json`` and
+ledger on disk, nothing ephemeral. For fast, in-memory tuning over the typed
+model params (with a shared objective) prefer :mod:`grian.tuning`, the unified
+Optuna interface.
 
-    fn(space, past_results) -> next_params | None
-
-The search driver calls the strategy repeatedly, running a full trial
-for each set of parameters. Every evaluation is a complete trial with
-its own config.json and artifacts on disk — nothing is ephemeral.
-
-Strategies included:
+Each strategy is a plain pull function ``fn(space, past_results) -> params | None``:
     grid_strategy    — Exhaustive grid over discrete values.
     random_strategy  — Random sampling from continuous/discrete ranges.
-    bayesian_strategy — Gaussian-process-based Bayesian optimisation.
+    bayesian_strategy — Optuna Gaussian-process (GP) optimisation.
 
-The driver (`run_search`) orchestrates the loop: it asks the strategy
-for the next point, runs a trial, records the result, and repeats
-until the strategy returns None or the budget is exhausted.
+The Bayesian strategy delegates to Optuna's ``GPSampler`` rather than a
+hand-rolled sklearn GP — it handles categoricals and the acquisition properly.
+The driver (:func:`run_search`) asks the strategy for the next point, runs a
+trial, records the result, and repeats until the strategy returns None.
 """
 
 import itertools
@@ -153,6 +152,30 @@ def random_strategy(
 # Strategy 3: Bayesian optimisation (GP-based)
 # ---------------------------------------------------------------------------
 
+def _distribution(spec):
+    """Map a search-space spec to an Optuna distribution.
+
+    Args:
+        spec: A list of choices, a ``(lo, hi)`` range, or ``(lo, hi, "log")``.
+
+    Returns:
+        The matching ``optuna.distributions`` object.
+    """
+    from optuna.distributions import (
+        CategoricalDistribution,
+        FloatDistribution,
+        IntDistribution,
+    )
+
+    if isinstance(spec, list):
+        return CategoricalDistribution(spec)
+    lo, hi = spec[0], spec[1]
+    log = len(spec) > 2 and spec[2] == "log"
+    if isinstance(lo, int) and isinstance(hi, int) and not log:
+        return IntDistribution(lo, hi)
+    return FloatDistribution(lo, hi, log=log)
+
+
 def bayesian_strategy(
     space: dict,
     past_results: list[dict],
@@ -160,21 +183,23 @@ def bayesian_strategy(
     max_evals: int = 50,
     n_initial: int = 5,
 ) -> dict | None:
-    """Bayesian optimisation using a Gaussian process surrogate.
+    """Bayesian optimisation via Optuna's Gaussian-process sampler.
 
-    Uses sklearn's GaussianProcessRegressor to model the objective
-    surface. Selects the next point by maximising expected improvement.
-    Falls back to random sampling for the first `n_initial` evaluations.
+    Replaces a hand-rolled sklearn GP + expected-improvement loop. Optuna's
+    ``GPSampler`` models the objective properly (categoricals included, no
+    hash-encoding hack) and optimises the acquisition itself. The driver's
+    pull interface is stateless, so each call rebuilds a study from
+    ``past_results``, tells it the observations, and asks for the next point.
 
     Args:
-        space: Search space dict.
+        space: Search space dict (lists / ``(lo, hi)`` / ``(lo, hi, "log")``).
         past_results: List of previous result dicts.
-        seed: Random seed.
+        seed: Random seed (reproducible search).
         max_evals: Maximum number of evaluations.
-        n_initial: Number of random initial evaluations before GP kicks in.
+        n_initial: Random start-up evaluations before the GP takes over.
 
     Returns:
-        Next parameter dict, or None if budget exhausted.
+        Next parameter dict, or None if the budget is exhausted.
     """
     if len(past_results) >= max_evals:
         return None
@@ -183,61 +208,24 @@ def bayesian_strategy(
     if len(past_results) < n_initial:
         return random_strategy(space, past_results, seed=seed, max_evals=max_evals)
 
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import Matern
+    import optuna
 
-    rng = np.random.default_rng(seed + len(past_results))
-    keys = sorted(space.keys())
-
-    # Encode past results into X (params) and y (metric)
-    X_obs = []
-    y_obs = []
-    for result in past_results:
-        row = []
-        for k in keys:
-            val = result["params"].get(k, 0)
-            row.append(float(val) if not isinstance(val, str) else hash(val) % 1000)
-        X_obs.append(row)
-        # Minimise negative revenue (i.e. maximise revenue)
-        y_obs.append(-result.get("metric", 0.0))
-
-    X_obs = np.array(X_obs)
-    y_obs = np.array(y_obs)
-
-    # Fit GP
-    gp = GaussianProcessRegressor(
-        kernel=Matern(nu=2.5),
-        n_restarts_optimizer=5,
-        random_state=seed,
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    distributions = {key: _distribution(spec) for key, spec in space.items()}
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.GPSampler(seed=seed, n_startup_trials=n_initial),
     )
-    gp.fit(X_obs, y_obs)
-
-    # Generate candidate points and evaluate expected improvement
-    n_candidates = 1000
-    candidates = []
-    for _ in range(n_candidates):
-        point = {key: _sample_value(spec, rng) for key, spec in space.items()}
-        row = [
-            float(point[k]) if not isinstance(point[k], str)
-            else hash(point[k]) % 1000
-            for k in keys
-        ]
-        candidates.append((point, row))
-
-    X_cand = np.array([c[1] for c in candidates])
-    mu, sigma = gp.predict(X_cand, return_std=True)
-
-    # Expected improvement
-    best_y = y_obs.min()
-    with np.errstate(divide="ignore", invalid="ignore"):
-        improvement = best_y - mu
-        Z = improvement / (sigma + 1e-8)
-        from scipy.stats import norm
-        ei = improvement * norm.cdf(Z) + sigma * norm.pdf(Z)
-        ei[sigma < 1e-8] = 0.0
-
-    best_idx = np.argmax(ei)
-    return candidates[best_idx][0]
+    for result in past_results:
+        params = {k: result["params"][k] for k in space if k in result["params"]}
+        if len(params) != len(space):
+            continue                        # skip incomplete observations
+        study.add_trial(optuna.trial.create_trial(
+            params=params, distributions=distributions,
+            value=float(result.get("metric", 0.0)),
+        ))
+    trial = study.ask(distributions)
+    return dict(trial.params)
 
 
 # ---------------------------------------------------------------------------
@@ -316,3 +304,14 @@ def run_search(
         eval_idx += 1
 
     return results
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

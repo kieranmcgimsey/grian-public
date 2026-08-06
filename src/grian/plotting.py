@@ -45,3 +45,14 @@ def save_fig(fig: plt.Figure, name: str, caption: str = "") -> Path:
         )
     fig.savefig(path, dpi=150, bbox_inches="tight")
     return path
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

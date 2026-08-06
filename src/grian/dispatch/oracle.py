@@ -180,3 +180,14 @@ def _assert_closed_cycles_nonnegative(
             f"{schedule_df.index[end]} lost ${-seg:.2f}"
         )
         start = end + 1
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

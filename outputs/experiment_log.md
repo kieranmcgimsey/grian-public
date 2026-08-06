@@ -15,7 +15,7 @@ successes.**
 ## Entry 001: LightGBM step stride miscalculation (288 boosters instead of 25)
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `_lgbm_fit`
+**Component:** `src/grian/models/` — `_lgbm_fit`
 **Severity:** Performance — training 11.5x slower than intended
 
 ### What happened
@@ -66,7 +66,7 @@ a step count.
 ## Entry 002: LightGBM loss function not wired to config
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `_lgbm_fit`
+**Component:** `src/grian/models/` — `_lgbm_fit`
 **Severity:** Correctness — `wrong_loss` ablation produced identical results
 
 ### What happened
@@ -122,7 +122,7 @@ dead config.
 ## Entry 003: LightGBM produces systematically bad forecasts (negative revenue)
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `_lgbm_predict`
+**Component:** `src/grian/models/` — `_lgbm_predict`
 **Severity:** Model quality — worse than doing nothing
 
 ### What happened
@@ -207,7 +207,7 @@ new, just a fancier function approximator," the model will likely underperform.
 ## Entry 004: `no_reconditioning` ablation — worst revenue but best MAE
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/runner.py` — refit logic
+**Component:** `src/grian/dispatch/open_loop.py` — refit logic
 **Severity:** Informational — expected result with educational nuance
 
 ### What happened
@@ -314,7 +314,7 @@ it.
 ## Entry 007: Future leakage ablation makes results *worse*, not better
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/runner.py` — `simulate_region`
+**Component:** `src/grian/dispatch/open_loop.py` — `simulate_region`
 **Severity:** Informational — counter-intuitive result
 
 ### What happened
@@ -385,7 +385,7 @@ through the right channel.
 ## Entry 008: `no_embargo` and `future_leakage` produce identical results
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/runner.py` — embargo and leakage logic
+**Component:** `src/grian/dispatch/open_loop.py` — embargo and leakage logic
 **Severity:** Informational — reveals structural limitation
 
 ### What happened
@@ -433,7 +433,7 @@ the more dangerous form.
 ## Entry 009: All LightGBM variants produce negative revenue
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — LightGBM model
+**Component:** `src/grian/models/` — LightGBM model
 **Severity:** Model quality — systematic failure
 
 ### What happened
@@ -491,7 +491,7 @@ valuable as-is.
 ## Entry 010: Rich features turn LightGBM from loss-maker to market-beater
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `lightgbm_rich`, `src/grian/sim/features.py`
+**Component:** `src/grian/models/` — `lightgbm_rich`, `src/grian/features.py`
 **Severity:** Model quality — positive result
 
 ### What happened
@@ -539,7 +539,7 @@ and expose feature importance directly.
 ## Entry 011: LSTM OOM killed — full dataset on MPS at once
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `_lstm_fit`
+**Component:** `src/grian/models/` — `_lstm_fit`
 **Severity:** Environment — training crashed with exit code 137 (OOM)
 
 ### What happened
@@ -591,7 +591,7 @@ process dies silently.
 ## Entry 012: LSTM underperforms naive baseline — autoregressive decode on raw price
 
 **Date:** 2026-07-08
-**Component:** `src/grian/sim/models.py` — `lstm`
+**Component:** `src/grian/models/` — `lstm`
 **Severity:** Model quality — negative result
 
 ### What happened
@@ -667,7 +667,7 @@ day-ahead electricity price forecasting.
 ## Entry 013: LP planned a fictional battery — dt hardcoded to 30 minutes
 
 **Date:** 2026-07-11
-**Component:** `src/grian/dispatch.py` — `schedule`
+**Component:** `src/grian/dispatch/cvxpy_reference.py` — `schedule`
 **Severity:** Correctness — all prior sim revenue figures void
 
 ### What happened
@@ -683,7 +683,7 @@ every trial run to date.
 
 Two adjacent defects compounded it:
 
-1. **Phantom energy at execution.** `runner.battery_dispatch` monetised the
+1. **Phantom energy at execution.** `open_loop.battery_dispatch` monetised the
    LP's raw charge/discharge values and only clamped the *recorded* SOC. The
    battery could be paid for discharging energy it did not hold.
 2. **No SOC continuity.** The LP hardcoded `soc[0] == 0`, so each day began
@@ -702,13 +702,13 @@ compared revenue against a physical upper bound.
 ### The fix
 
 - `schedule()` gained `dt_hours`, `soc0`, `terminal_soc` parameters.
-- New `grian/sim/lp.py`: sparse HiGHS formulation of the same LP
+- New `grian/dispatch/battery_lp.py`: sparse HiGHS formulation of the same LP
   (10–50× faster, scales to the full-window oracle) plus `clamp_action`,
   the single shared feasibility clamp. Equivalence with the cvxpy model is
   unit-tested at both resolutions.
-- `runner.battery_dispatch` now executes with per-interval clamping, carries
+- `open_loop.battery_dispatch` now executes with per-interval clamping, carries
   SOC across days, and enforces the daily cycle budget at execution.
-- New `grian/sim/oracle.py`: perfect-foresight LP over the full window with
+- New `grian/dispatch/oracle.py`: perfect-foresight LP over the full window with
   per-calendar-day cycle budgets — the capture-ratio denominator. Replaying
   the oracle's schedule through the honest executor reproduces its revenue
   to 1e-4 (capture = 1.0 by construction).
@@ -728,7 +728,7 @@ scorer to the same physics.
 ## Entry 014: Models forecast from the last refit, not from now
 
 **Date:** 2026-07-11
-**Component:** `src/grian/sim/models.py` — `_naive_predict`, `_lgbm_rich_predict`
+**Component:** `src/grian/models/` — `_naive_predict`, `_lgbm_rich_predict`
 **Severity:** Model quality — systematic staleness between refits
 
 ### What happened
@@ -850,7 +850,7 @@ selection optimises for that combination.
 ## Entry 016: MPC clears 0.50 — recourse pays exactly where short-lead skill exists
 
 **Date:** 2026-07-12
-**Component:** `src/grian/sim/mpc.py` — W1.3 results
+**Component:** `src/grian/dispatch/mpc.py` — W1.3 results
 **Severity:** Model quality — campaign milestone
 
 ### What happened

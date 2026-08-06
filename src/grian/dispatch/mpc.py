@@ -483,3 +483,14 @@ def simulate_region_mpc(
     if record_plans:
         result["plans"] = recorded_plans
     return result
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

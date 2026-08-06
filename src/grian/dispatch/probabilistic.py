@@ -118,3 +118,14 @@ def combine_scenario_actions(
     else:  # pragma: no cover - guarded by caller
         raise ValueError(f"unknown scenario mode {mode!r}")
     return np.maximum(-net, 0.0), np.maximum(net, 0.0)
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

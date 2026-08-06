@@ -45,15 +45,15 @@ def _mlp_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) ->
         "frozen-tail bug and can't reforecast under MPC). Use LightGBM or LEAR.",
         DeprecationWarning, stacklevel=2)
 
-    ppd = _periods_per_day(cfg.get("resolution", "5min"))
-    default_lags = [ppd, 2 * ppd, 7 * ppd]
-    lags = cfg.get("model_params", {}).get("lags", default_lags)
+    from grian.models.params import MLPParams, default_lags
 
-    params = cfg.get("model_params", {})
-    hidden_dim = params.get("hidden_dim", 128)
-    epochs = params.get("epochs", 50)
-    lr = params.get("lr", 1e-3)
-    batch_size = params.get("batch_size", 256)
+    p = MLPParams.model_validate(cfg.get("model_params") or {})
+    ppd = _periods_per_day(cfg.get("resolution", "5min"))
+    lags = p.lags if p.lags is not None else default_lags(ppd)
+    hidden_dim = p.hidden_dim
+    epochs = p.epochs
+    lr = p.lr
+    batch_size = p.batch_size
     seed = cfg.get("seed", 42)
 
     torch.manual_seed(seed)
@@ -275,14 +275,16 @@ def _lstm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
         "bug and can't reforecast under MPC). Use LightGBM or LEAR.",
         DeprecationWarning, stacklevel=2)
 
-    params = cfg.get("model_params", {})
-    seq_len = params.get("seq_len", 288)
-    hidden_dim = params.get("hidden_dim", 64)
-    num_layers = params.get("num_layers", 2)
-    epochs = params.get("epochs", 30)
-    lr = params.get("lr", 0.001)
-    batch_size = params.get("batch_size", 256)
-    dropout = params.get("dropout", 0.1)
+    from grian.models.params import LSTMParams
+
+    p = LSTMParams.model_validate(cfg.get("model_params") or {})
+    seq_len = p.seq_len
+    hidden_dim = p.hidden_dim
+    num_layers = p.num_layers
+    epochs = p.epochs
+    lr = p.lr
+    batch_size = p.batch_size
+    dropout = p.dropout
     seed = cfg.get("seed", 42)
 
     torch.manual_seed(seed)
@@ -344,8 +346,7 @@ def _lstm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
     head_cpu = head.cpu()
 
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
-    default_lags = [ppd, 2 * ppd, 7 * ppd]
-    lags = params.get("lags", default_lags)
+    lags = [ppd, 2 * ppd, 7 * ppd]
 
     return {
         "lstm_state_dict": model_cpu.state_dict(),
@@ -482,3 +483,14 @@ LSTM = {
     "save": _lstm_save,
     "load": _lstm_load,
 }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

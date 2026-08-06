@@ -447,3 +447,14 @@ def list_regions(
         for d in root.iterdir()
         if d.is_dir() and (d / "metrics.json").exists()
     )
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

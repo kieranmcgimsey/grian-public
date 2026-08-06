@@ -25,22 +25,53 @@ from grian.models._shared import (
     _periods_per_day,
     _pinball_loss,
     _quantile_weights,
+    seed_everything,
 )
 from grian.models.baselines import AUTOREGRESSION, NAIVE_SIMILAR_DAY
 from grian.models.gradient_boosting import LIGHTGBM, LIGHTGBM_QMEAN, LIGHTGBM_RICH
 from grian.models.linear import LEAR_QMEAN, LEAR_QMEAN_TORCH, LINEAR
 from grian.models.neural import LSTM, SIMPLE_MLP
+from grian.models.params import (
+    ARParams,
+    LearParams,
+    LearTorchParams,
+    LGBMParams,
+    LGBMQMeanParams,
+    LGBMRichParams,
+    LinearParams,
+    LSTMParams,
+    MLPParams,
+    NaiveParams,
+    SampleWeighting,
+)
 
 __all__ = [
-    "REGISTRY", "get_model",
+    "REGISTRY", "get_model", "PARAMS_FOR", "params_for", "seed_everything",
     "NAIVE_SIMILAR_DAY", "AUTOREGRESSION", "LINEAR", "LEAR_QMEAN", "LEAR_QMEAN_TORCH",
     "LIGHTGBM", "LIGHTGBM_RICH", "LIGHTGBM_QMEAN", "SIMPLE_MLP", "LSTM",
+    "NaiveParams", "ARParams", "LinearParams", "LearParams", "LearTorchParams",
+    "LGBMParams", "LGBMRichParams", "LGBMQMeanParams", "MLPParams", "LSTMParams",
+    "SampleWeighting",
     "_CALENDAR_COLS", "_FOURIER_SPEC", "_LINEAR_BY_NAME", "_apply_conformal",
     "_build_lag_features", "_calendar_features", "_conformal_fan_adjustments",
     "_decision_weights", "_fourier_calendar", "_get_device", "_l1_penalty",
     "_leading_calendar_columns", "_linear_preprocessor", "_make_linear_estimator",
     "_periods_per_day", "_pinball_loss", "_quantile_weights",
 ]
+
+# Model family (a spec's canonical ``name``) → its typed params class.
+_PARAMS_BY_SPEC_NAME: dict[str, type] = {
+    "naive_similar_day": NaiveParams,
+    "autoregression": ARParams,
+    "linear": LinearParams,
+    "lear_qmean": LearParams,
+    "lear_qmean_torch": LearTorchParams,
+    "lightgbm": LGBMParams,
+    "lightgbm_rich": LGBMRichParams,
+    "lightgbm_qmean": LGBMQMeanParams,
+    "simple_mlp": MLPParams,
+    "lstm": LSTMParams,
+}
 
 
 REGISTRY: dict[str, dict] = {
@@ -129,3 +160,29 @@ def get_model(name: str) -> dict:
             f"Available: {sorted(REGISTRY)}"
         )
     return REGISTRY[name]
+
+
+# Registered model name (including aliases) → its typed params class.
+PARAMS_FOR: dict[str, type] = {
+    name: _PARAMS_BY_SPEC_NAME[spec["name"]] for name, spec in REGISTRY.items()
+}
+
+
+def params_for(name: str) -> type:
+    """Return the typed params class for a registered model name.
+
+    Args:
+        name: A key in :data:`REGISTRY` (canonical or alias).
+
+    Returns:
+        The `pydantic` params class the model's ``fit`` parses ``model_params``
+        into (e.g. :class:`~grian.models.params.LGBMQMeanParams`).
+
+    Raises:
+        KeyError: If the model name is not registered.
+    """
+    if name not in PARAMS_FOR:
+        raise KeyError(
+            f"Unknown model {name!r}. Available: {sorted(PARAMS_FOR)}"
+        )
+    return PARAMS_FOR[name]

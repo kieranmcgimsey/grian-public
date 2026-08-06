@@ -1,0 +1,13 @@
+# LEAR (L1 linear) on the rich feature set with weather — the classic EPF
+# benchmark. Best MAE, but a weaker *trader* than the quantile GBM (capture
+# lives in the spikes, not the average).
+model: lear_weather
+model_params:
+  estimator: lasso
+  include_weather: true
+  calendar_encoding: onehot
+seed: 42
+resolution: "30min"
+horizon: 48
+transform: asinh
+executor: openloop

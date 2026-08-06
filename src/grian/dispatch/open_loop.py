@@ -441,3 +441,14 @@ def run_trial(
 
     logger.info("Trial '%s' complete", trial_name)
     return results
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

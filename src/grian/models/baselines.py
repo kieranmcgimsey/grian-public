@@ -131,11 +131,12 @@ def _ar_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -> 
     from sklearn.linear_model import LinearRegression
     from sklearn.pipeline import Pipeline
 
+    from grian.models.params import ARParams, default_lags
+
+    p = ARParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
-    default_lags = [ppd, 2 * ppd, 7 * ppd]
-    params = cfg.get("model_params", {})
-    lags = params.get("lags", default_lags)
-    calendar_encoding = params.get("calendar_encoding", "onehot")
+    lags = p.lags if p.lags is not None else default_lags(ppd)
+    calendar_encoding = p.calendar_encoding
 
     series = train_df[target_col]
     lag_df = _build_lag_features(series, lags)
@@ -267,3 +268,14 @@ AUTOREGRESSION = {
     "save": _ar_save,
     "load": _ar_load,
 }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

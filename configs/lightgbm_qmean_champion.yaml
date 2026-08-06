@@ -1,0 +1,24 @@
+# Champion run: quantile GBM (weather + Fourier calendar) under spike-gated MPC.
+# Reproduce with:  grian run configs/lightgbm_qmean_champion.yaml
+model: lightgbm_qmean_weather_fourier
+model_params:
+  n_estimators: 150
+  learning_rate: 0.05
+  quantiles: [0.05, 0.5, 0.9, 0.98]
+  include_weather: true
+  calendar_encoding: fourier
+seed: 42
+resolution: "30min"
+horizon: 48
+transform: asinh
+loss: pinball
+executor: mpc
+mpc:
+  resolve_every: 1
+  reforecast_every: 48
+  persistence_gate: 300
+dispatch:
+  power_mw: 100.0
+  duration_hours: 2.0
+  efficiency: 0.85
+  max_cycles: 2

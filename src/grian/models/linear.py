@@ -44,19 +44,19 @@ def _linear_fit(
     from sklearn.pipeline import Pipeline
 
     from grian.features import build_features
+    from grian.models.params import LinearParams
 
+    p = LinearParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
     resolution = cfg.get("resolution", "5min")
-    params = cfg.get("model_params", {})
-    kind = params.get("estimator") or _LINEAR_BY_NAME.get(
-        cfg.get("model", ""), "lasso")
+    kind = p.estimator or _LINEAR_BY_NAME.get(cfg.get("model", ""), "lasso")
     # Linear models one-hot the calendar by default (ordinal is wrong for a
     # linear fit); "fourier" and "ordinal" are alternatives via model_params.
-    calendar_encoding = params.get("calendar_encoding", "onehot")
-    include_weather = params.get("include_weather", False)
-    include_scarcity = params.get("include_scarcity", False)
-    feature_set = params.get("feature_set", "full")
+    calendar_encoding = p.calendar_encoding
+    include_weather = p.include_weather
+    include_scarcity = p.include_scarcity
+    feature_set = p.feature_set
 
     X = build_features(train_df, target_col, resolution,
                        include_scarcity=include_scarcity,
@@ -66,7 +66,7 @@ def _linear_fit(
     feature_cols = list(X.columns)
 
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = params.get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -81,7 +81,9 @@ def _linear_fit(
             continue
         pipe = Pipeline([
             ("pre", _linear_preprocessor(feature_cols, calendar_encoding)),
-            ("est", _make_linear_estimator(kind, params)),
+            ("est", _make_linear_estimator(
+                kind, n_alphas=p.n_alphas, max_iter=p.max_iter,
+                l1_ratio=p.l1_ratio, seed=cfg.get("seed", 42))),
         ])
         pipe.fit(X_clean, y_clean.values)   # DataFrame in: named-column encoding
         models[step] = pipe
@@ -228,6 +230,7 @@ def _lear_qmean_fit(
     from sklearn.pipeline import Pipeline
 
     from grian.features import build_features
+    from grian.models.params import LearParams
 
     warnings.warn(
         "lear_qmean (sklearn QuantileRegressor) is deprecated: ~8 min/refit and "
@@ -236,14 +239,14 @@ def _lear_qmean_fit(
     logger.warning("lear_qmean is DEPRECATED (slow CPU LPs; Fourier penalised) "
                    "— prefer lear_qmean_torch.")
 
+    p = LearParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
     resolution = cfg.get("resolution", "5min")
-    params = cfg.get("model_params", {})
-    quantiles = sorted(params.get("quantiles", [0.05, 0.5, 0.9, 0.98]))
-    alpha = params.get("alpha", 0.01)
-    calendar_encoding = params.get("calendar_encoding", "onehot")
-    include_weather = params.get("include_weather", False)
+    quantiles = sorted(p.quantiles)
+    alpha = p.alpha
+    calendar_encoding = p.calendar_encoding
+    include_weather = p.include_weather
 
     X = build_features(train_df, target_col, resolution,
                        include_weather=include_weather)
@@ -251,7 +254,7 @@ def _lear_qmean_fit(
     feature_cols = list(X.columns)
 
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = params.get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -425,18 +428,19 @@ def _lear_qmean_torch_fit(
     import torch
 
     from grian.features import build_features
+    from grian.models.params import LearTorchParams
 
+    p = LearTorchParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
     resolution = cfg.get("resolution", "5min")
-    params = cfg.get("model_params", {})
-    quantiles = sorted(params.get("quantiles", [0.05, 0.5, 0.9, 0.98]))
-    alpha = params.get("alpha", 0.01)
-    calendar_encoding = params.get("calendar_encoding", "onehot")
-    include_weather = params.get("include_weather", False)
-    epochs = params.get("epochs", 400)
-    lr = params.get("lr", 0.005)
-    feature_clip = params.get("feature_clip", 5.0)
+    quantiles = sorted(p.quantiles)
+    alpha = p.alpha
+    calendar_encoding = p.calendar_encoding
+    include_weather = p.include_weather
+    epochs = p.epochs
+    lr = p.lr
+    feature_clip = p.feature_clip
     seed = cfg.get("seed", 42)
 
     torch.manual_seed(seed)
@@ -448,7 +452,7 @@ def _lear_qmean_torch_fit(
     feature_cols = list(X.columns)
 
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = params.get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -666,3 +670,14 @@ LEAR_QMEAN_TORCH = {
     "save": _lear_qmean_torch_save,
     "load": _lear_qmean_torch_load,
 }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

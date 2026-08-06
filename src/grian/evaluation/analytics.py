@@ -531,3 +531,14 @@ def quantile_coverage(
         q: float(np.mean(a <= np.asarray(pred, dtype=float)))
         for q, pred in quantile_preds.items()
     }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

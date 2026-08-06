@@ -212,3 +212,14 @@ def rolling_mpc(
         "actions": actions,
         "capture_ratio": capture_ratio(total_revenue, perfect_rev),
     }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

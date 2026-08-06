@@ -438,3 +438,14 @@ def resolution_dt_hours(resolution: str) -> float:
         Interval length in hours (1/12 for 5-min, 0.5 for 30-min).
     """
     return 5.0 / 60.0 if resolution == "5min" else 0.5
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

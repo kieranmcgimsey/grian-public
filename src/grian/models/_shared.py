@@ -55,12 +55,26 @@ def _calendar_features(index: pd.DatetimeIndex) -> pd.DataFrame:
 _LINEAR_BY_NAME = {"lear": "lasso", "ridge": "ridge", "elasticnet": "elasticnet"}
 
 
-def _make_linear_estimator(kind: str, params: dict):
+def _make_linear_estimator(
+    kind: str,
+    *,
+    n_alphas: int = 20,
+    max_iter: int = 2000,
+    l1_ratio: float = 0.5,
+    seed: int = 42,
+):
     """Build the per-step sklearn estimator for a linear model.
+
+    The LEAR family is sklearn by definition (its published benchmarks are
+    LassoCV/RidgeCV/ElasticNetCV); the caller passes already-resolved, typed
+    hyperparameters rather than a loose dict.
 
     Args:
         kind: One of "lasso" (LEAR), "ridge", "elasticnet", or "ols".
-        params: model_params (reads n_alphas, l1_ratio, max_iter, seed).
+        n_alphas: Regularisation-path length for the CV estimators.
+        max_iter: Solver iteration cap.
+        l1_ratio: ElasticNet mix (ignored by the others).
+        seed: Random state (inert under the default cyclic selection).
 
     Returns:
         An unfitted sklearn regressor with regularisation chosen by CV.
@@ -74,9 +88,6 @@ def _make_linear_estimator(kind: str, params: dict):
         RidgeCV,
     )
 
-    n_alphas = params.get("n_alphas", 20)
-    max_iter = params.get("max_iter", 2000)
-    seed = params.get("seed", 42)
     # How to say "use this many alphas along the regularisation path" changed
     # across the scikit-learn versions this project supports (>=1.4,<2): up to
     # 1.6 the argument is ``n_alphas=<int>``; 1.7 removed it and now takes the
@@ -94,7 +105,7 @@ def _make_linear_estimator(kind: str, params: dict):
         # RidgeCV takes an explicit array of alphas in every supported version.
         return RidgeCV(alphas=np.logspace(-3, 3, n_alphas))
     if kind == "elasticnet":
-        return ElasticNetCV(cv=3, l1_ratio=params.get("l1_ratio", 0.5),
+        return ElasticNetCV(cv=3, l1_ratio=l1_ratio,
                             max_iter=max_iter, random_state=seed, n_jobs=-1,
                             **n_alphas_kwarg)
     return LinearRegression()
@@ -249,7 +260,30 @@ def _get_device():
     return torch.device("cpu")
 
 
-def _decision_weights(y_transformed, transform, params):
+def seed_everything(seed: int) -> None:
+    """Seed Python, NumPy, and torch RNGs for reproducible runs.
+
+    Call once at the start of a run (the CLI does this) so a config reproduces
+    down to the seed. Per-fit seeding still applies for models that need it.
+
+    Args:
+        seed: The integer seed to apply across all RNGs.
+    """
+    import random
+
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.backends.mps.is_available():
+            torch.mps.manual_seed(seed)
+    except ImportError:      # torch is optional at import time
+        pass
+
+
+def _decision_weights(y_transformed, transform, weighting):
     """Per-sample fit weights that up-weight high-price (scarcity) intervals.
 
     Decision-focused training. Dispatch *capture* is earned in price spikes,
@@ -265,12 +299,11 @@ def _decision_weights(y_transformed, transform, params):
     Args:
         y_transformed: Target values in modelling space (e.g. asinh dollars).
         transform: Name of the target transform ("asinh", "log1p", "identity").
-        params: ``sample_weighting`` sub-dict. Keys:
-            ``scheme`` — "magnitude" (bounded log-dollar ramp, default) or
-            "quantile" (flat boost above a price percentile);
-            ``strength`` — weight gain (default 1.0);
-            ``scale`` — dollar scale for the magnitude ramp (default 300.0);
-            ``q`` — percentile cut for the quantile scheme (default 0.9).
+        weighting: A :class:`~grian.models.params.SampleWeighting`. Fields:
+            ``scheme`` — "magnitude" (bounded log-dollar ramp) or "quantile"
+            (flat boost above a price percentile); ``strength`` — weight gain;
+            ``scale`` — dollar scale for the magnitude ramp; ``q`` — percentile
+            cut for the quantile scheme.
 
     Returns:
         1-D float array of non-negative weights, mean-normalised to 1.0 so the
@@ -281,15 +314,13 @@ def _decision_weights(y_transformed, transform, params):
     _, inverse_fn = _get_transform_pair(transform)
     dollars = np.asarray(inverse_fn(np.asarray(y_transformed, dtype=float)),
                          dtype=float)
-    scheme = params.get("scheme", "magnitude")
-    strength = float(params.get("strength", 1.0))
+    strength = float(weighting.strength)
 
-    if scheme == "quantile":
-        thresh = float(np.quantile(dollars, float(params.get("q", 0.9))))
+    if weighting.scheme == "quantile":
+        thresh = float(np.quantile(dollars, float(weighting.q)))
         w = np.where(dollars >= thresh, 1.0 + strength, 1.0)
     else:  # "magnitude": gentle, bounded ramp in dollar space
-        scale = float(params.get("scale", 300.0))
-        w = 1.0 + strength * np.log1p(np.maximum(0.0, dollars) / scale)
+        w = 1.0 + strength * np.log1p(np.maximum(0.0, dollars) / float(weighting.scale))
 
     w = np.clip(w, 1e-6, None)
     mean = float(w.mean()) or 1.0
@@ -382,3 +413,14 @@ def _apply_conformal(fan, adjustments, quantiles, horizon):
         for i, q in enumerate(qs):
             fan[q][step] = col[i]
     return fan
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

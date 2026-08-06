@@ -16,7 +16,7 @@ def test_magnitude_weights_rise_with_price():
     """Higher dollar price → larger weight, and the mean is normalised to 1."""
     dollars = np.array([50.0, 100.0, 300.0, 5000.0, 20000.0])
     y = np.arcsinh(dollars)  # target lives in asinh space
-    w = models._decision_weights(y, "asinh", {"scheme": "magnitude"})
+    w = models._decision_weights(y, "asinh", models.SampleWeighting(scheme="magnitude"))
 
     assert np.all(np.diff(w) > 0)              # monotone in price
     assert np.isclose(w.mean(), 1.0)           # effective LR unchanged
@@ -26,8 +26,8 @@ def test_magnitude_weights_rise_with_price():
 def test_strength_widens_the_spread():
     """A larger strength pulls more weight onto the high-price tail."""
     y = np.arcsinh(np.array([50.0, 100.0, 300.0, 5000.0, 20000.0]))
-    weak = models._decision_weights(y, "asinh", {"strength": 0.5})
-    strong = models._decision_weights(y, "asinh", {"strength": 4.0})
+    weak = models._decision_weights(y, "asinh", models.SampleWeighting(strength=0.5))
+    strong = models._decision_weights(y, "asinh", models.SampleWeighting(strength=4.0))
     # Top interval carries a larger share of the (mean-1) weight budget.
     assert strong[-1] > weak[-1]
 
@@ -36,8 +36,9 @@ def test_quantile_scheme_boosts_only_the_tail():
     """The quantile scheme flat-boosts prices above the percentile, else 1×."""
     dollars = np.concatenate([np.full(90, 50.0), np.full(10, 8000.0)])
     y = np.arcsinh(dollars)
-    w = models._decision_weights(y, "asinh",
-                                 {"scheme": "quantile", "q": 0.9, "strength": 3.0})
+    w = models._decision_weights(
+        y, "asinh",
+        models.SampleWeighting(scheme="quantile", q=0.9, strength=3.0))
     # Two distinct levels; the tail weight is the larger one.
     assert len(np.unique(np.round(w, 6))) == 2
     assert w[-1] > w[0]
@@ -46,7 +47,7 @@ def test_quantile_scheme_boosts_only_the_tail():
 def test_uniform_prices_give_uniform_weights():
     """No price dispersion → no reweighting (all weights equal to 1)."""
     y = np.arcsinh(np.full(20, 100.0))
-    w = models._decision_weights(y, "asinh", {"scheme": "magnitude"})
+    w = models._decision_weights(y, "asinh", models.SampleWeighting(scheme="magnitude"))
     assert np.allclose(w, 1.0)
 
 

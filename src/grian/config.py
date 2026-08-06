@@ -25,3 +25,14 @@ def load_config(path: Path | None = None) -> dict:
 def repo_root() -> Path:
     """Return the absolute path to the repository root."""
     return _REPO_ROOT
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

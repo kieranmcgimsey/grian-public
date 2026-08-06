@@ -49,8 +49,27 @@ perfect-foresight oracle's) is the headline metric.
 
 ```bash
 ruff check .        # lint (docstrings enforced)
+mypy                # type-check src/grian/models
 pytest -q           # tests
 ```
+
+## Typed params, configs, and the CLI
+
+- **Hyperparameters are typed, not dict keys.** Each model family has a frozen
+  `pydantic` params model in `src/grian/models/params.py` (`extra="forbid"`);
+  every `fit` parses `cfg["model_params"]` into it. Defaults live there, once.
+  `grian.models.params_for(name)` maps a model to its class.
+- **Runs are typed YAML.** `src/grian/experiment.py` `ExperimentConfig` is loaded
+  from `configs/*.yaml` and reproduces a trial down to the seed; it produces the
+  engine `cfg` via `make_config` (the engine core stays dict-based — typed at the
+  boundary, dicts at the core).
+- **Tuning** is one Optuna interface (`src/grian/tuning.py`): `tpe`/`gp`/`grid`/
+  `random` over the typed fields.
+- **CLI**: `grian` (fire + rich) — `models`, `describe <model>`, `configs`,
+  `run <cfg.yaml>`, `tune <cfg.yaml> <space.yaml>`. Every module is also runnable
+  as `python -m grian.<module>`.
+- sklearn is kept only where it *is* the model (LEAR/Ridge/ElasticNet); new infra
+  (tuning, configs) does not use it.
 
 ## Collaboration
 

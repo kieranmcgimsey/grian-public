@@ -37,48 +37,33 @@ def _lgbm_fit(train_df: pd.DataFrame, target_col: str, cfg: Mapping[str, Any]) -
     """
     import lightgbm as lgb
 
+    from grian.models.params import LGBMParams, default_lags
+
+    p = LGBMParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
-    default_lags = [ppd, 2 * ppd, 7 * ppd]
-    lags = cfg.get("model_params", {}).get("lags", default_lags)
+    lags = p.lags if p.lags is not None else default_lags(ppd)
 
     series = train_df[target_col]
     lag_df = _build_lag_features(series, lags)
     cal_df = _calendar_features(series.index)
     X = pd.concat([lag_df, cal_df], axis=1)
 
-    # Default LightGBM parameters — reasonable for price forecasting
-    lgb_params: dict[str, Any] = {
-        "n_estimators": 300,
-        "learning_rate": 0.05,
-        "num_leaves": 31,
-        "max_depth": -1,
-        "min_child_samples": 20,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "verbosity": -1,
-        "n_jobs": -1,
-    }
-
-    # Wire config loss into LightGBM objective
+    # Typed defaults live on LGBMParams; the fit only wires the config loss into
+    # the LightGBM objective (pinball → median-quantile, huber → huber).
+    lgb_params = p.to_lgb_kwargs()
     loss = cfg.get("loss", "pinball")
     if loss == "pinball":
         lgb_params["objective"] = "quantile"
         lgb_params["alpha"] = 0.5
     elif loss == "huber":
         lgb_params["objective"] = "huber"
-    # Override with any user-provided params (excluding our internal keys)
-    user_params = {
-        k: v for k, v in cfg.get("model_params", {}).items()
-        if k not in ("lags",)
-    }
-    lgb_params.update(user_params)
 
     # Direct multi-step: one model per horizon step
     # For efficiency, model one step per hour and interpolate the rest.
     # At 5min resolution, 12 steps = 1 hour → ~24 models for day-ahead.
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = cfg.get("model_params", {}).get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -240,35 +225,20 @@ def _lgbm_rich_fit(
     import lightgbm as lgb
 
     from grian.features import build_features
+    from grian.models.params import LGBMRichParams
 
+    p = LGBMRichParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
     resolution = cfg.get("resolution", "5min")
-    include_scarcity = cfg.get("model_params", {}).get(
-        "include_scarcity", False
-    )
-    include_weather = cfg.get("model_params", {}).get("include_weather", False)
-    calendar_encoding = cfg.get("model_params", {}).get(
-        "calendar_encoding", "ordinal")
 
     X = build_features(train_df, target_col, resolution,
-                       include_scarcity=include_scarcity,
-                       include_weather=include_weather,
-                       calendar_encoding=calendar_encoding)
+                       include_scarcity=p.include_scarcity,
+                       include_weather=p.include_weather,
+                       calendar_encoding=p.calendar_encoding)
     series = train_df[target_col]
 
-    lgb_params: dict[str, Any] = {
-        "n_estimators": 300,
-        "learning_rate": 0.05,
-        "num_leaves": 31,
-        "max_depth": -1,
-        "min_child_samples": 20,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "verbosity": -1,
-        "n_jobs": -1,
-    }
-
+    lgb_params = p.to_lgb_kwargs()
     loss = cfg.get("loss", "pinball")
     if loss == "pinball":
         lgb_params["objective"] = "quantile"
@@ -276,21 +246,13 @@ def _lgbm_rich_fit(
     elif loss == "huber":
         lgb_params["objective"] = "huber"
 
-    _non_lgb = ("lags", "step_stride", "include_scarcity", "include_weather",
-                "sample_weighting")
-    user_params = {
-        k: v for k, v in cfg.get("model_params", {}).items()
-        if k not in _non_lgb
-    }
-    lgb_params.update(user_params)
-
     # Decision-focused training: optional per-sample weights that up-weight
     # high-price intervals so the fit chases spike timing, not just MAE.
-    weighting = cfg.get("model_params", {}).get("sample_weighting")
+    weighting = p.sample_weighting
     transform = cfg.get("transform", "identity")
 
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = cfg.get("model_params", {}).get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -321,9 +283,9 @@ def _lgbm_rich_fit(
         "resolution": resolution,
         "lgb_params": lgb_params,
         "target_col": target_col,
-        "include_scarcity": include_scarcity,
-        "include_weather": include_weather,
-        "calendar_encoding": calendar_encoding,
+        "include_scarcity": p.include_scarcity,
+        "include_weather": p.include_weather,
+        "calendar_encoding": p.calendar_encoding,
         "train_tail": train_df.tail(max(288 * 7, 2016) + 1).copy(),
     }
 
@@ -468,34 +430,27 @@ def _lgbm_qmean_fit(
     import lightgbm as lgb
 
     from grian.features import build_features
+    from grian.models.params import LGBMQMeanParams
 
+    p = LGBMQMeanParams.model_validate(cfg.get("model_params") or {})
     ppd = _periods_per_day(cfg.get("resolution", "5min"))
     horizon = cfg.get("horizon", ppd)
     resolution = cfg.get("resolution", "5min")
-    params = cfg.get("model_params", {})
-    quantiles = sorted(params.get("quantiles", [0.05, 0.5, 0.9, 0.98]))
-    include_weather = params.get("include_weather", False)
-    calendar_encoding = params.get("calendar_encoding", "ordinal")
+    quantiles = sorted(p.quantiles)
+    include_weather = p.include_weather
+    calendar_encoding = p.calendar_encoding
 
     X = build_features(train_df, target_col, resolution,
                        include_weather=include_weather,
                        calendar_encoding=calendar_encoding)
     series = train_df[target_col]
 
-    lgb_params: dict[str, Any] = {
-        "n_estimators": params.get("n_estimators", 150),
-        "learning_rate": params.get("learning_rate", 0.05),
-        "num_leaves": 31,
-        "min_child_samples": 20,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "verbosity": -1,
-        "n_jobs": -1,
-        "objective": "quantile",
-    }
+    # Quantile boosters: shared kwargs here, per-quantile alpha set in the loop.
+    lgb_params = p.to_lgb_kwargs()
+    lgb_params["objective"] = "quantile"
 
     intervals_per_hour = max(1, 60 // (1440 // ppd))
-    step_stride = params.get("step_stride", intervals_per_hour)
+    step_stride = p.step_stride if p.step_stride is not None else intervals_per_hour
     model_steps = list(range(0, horizon, step_stride))
     if model_steps[-1] != horizon - 1:
         model_steps.append(horizon - 1)
@@ -506,10 +461,10 @@ def _lgbm_qmean_fit(
     # default. In dollar space, because that is where dispatch reads the fan —
     # and it is the upper quantiles' under-coverage of spikes we most want to
     # correct (Entry 033).
-    calibrate = params.get("calibrate", False)
+    calibrate = p.calibrate
     transform = cfg.get("transform", "identity")
     n = len(X)
-    n_cal = min(int(params.get("cal_days", 28)) * ppd, n // 4) if calibrate else 0
+    n_cal = min(p.cal_days * ppd, n // 4) if calibrate else 0
     is_cal = np.arange(n) >= (n - n_cal)
 
     boosters = {}
@@ -545,7 +500,7 @@ def _lgbm_qmean_fit(
         "transform": transform,
         "include_weather": include_weather,
         "calendar_encoding": calendar_encoding,
-        "mean_from_step": params.get("mean_from_step", 0),
+        "mean_from_step": p.mean_from_step,
         "conformal_adjustments": adjustments,
         "train_tail": train_df.tail(max(288 * 7, 2016) + 1).copy(),
     }
@@ -737,3 +692,14 @@ LIGHTGBM_QMEAN = {
     "save": _lgbm_qmean_save,
     "load": _lgbm_qmean_load,
 }
+
+
+def main() -> None:
+    """Run this module as a CLI (exposes its public callables)."""
+    from grian._cli import run_module_cli
+
+    run_module_cli(globals())
+
+
+if __name__ == "__main__":
+    main()

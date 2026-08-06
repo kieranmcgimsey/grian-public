@@ -27,7 +27,16 @@ dependencies = [
     "cvxpy>=1.4,<2",
     "geopandas>=1.0,<2",
     "shapely>=2.0,<3",
+    # Typed configs/params, CLIs, and readable output.
+    "pydantic>=2.6,<3",
+    "fire>=0.6,<1",
+    "rich>=13,<15",
+    # Modern, extensible hyperparameter optimisation (TPE / GP / grid / random).
+    "optuna>=3.6,<5",
 ]
+
+[project.scripts]
+grian = "grian.cli:main"
 
 [project.optional-dependencies]
 nemseer = ["nemseer>=0.6"]

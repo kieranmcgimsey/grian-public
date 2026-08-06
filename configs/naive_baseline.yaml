@@ -1,0 +1,6 @@
+# The similar-day naive baseline — the capture floor every model is scored against.
+model: naive_similar_day
+seed: 42
+resolution: "30min"
+horizon: 48
+executor: openloop
